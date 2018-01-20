@@ -1,4 +1,22 @@
 # History files
+
+Projects/pro_1/pro_1.pdf
+Projects/pro_2/pro_2.pdf
+Projects/pro_3/pro_3.pdf
+
+Projects/pro_1/pro_1_cache/*
+Projects/pro_2/pro_2_cache/*
+Projects/pro_3/pro_3_cache/*
+
+Projects/pro_1/pro_1_files/*
+Projects/pro_2/pro_2_files/*
+Projects/pro_3/pro_3_files/*
+
+
+Litterature/*
+Inspiration/*
+
+
 .Rhistory
 .Rapp.history
 
