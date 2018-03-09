@@ -1,16 +1,17 @@
 ---
-title: 'Advanced Dataanalysis and Statistical Modelling: Exercise 1'
+title: 'Advanced Dataanalysis and Statistical Modelling - Assignment 1: Dioxin Emission'
 author: "Anders Launer Bæk (s160159)"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes: 
     - \usepackage{graphicx}
+    - \usepackage{hyperref}
+    - \usepackage{amsmath}
 output:
   pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 rm(list=ls())
-
 knitr::opts_chunk$set(echo=FALSE, 
                       include=TRUE,
                       warning=FALSE,
@@ -42,6 +43,42 @@ theme_TS <- function(base_size=9, base_family="", face="plain"){
           axis.title=element_text(size=base_size, face=face, family=base_family),
           legend.text=element_text(size=base_size, face=face, family=base_family))
 }
+qqplot.data <- function(vec, conf = 0.95) {
+  # following four lines from base R's qqline()
+  y <- quantile(vec[!is.na(vec)], c(0.25, 0.75))
+  x <- qnorm(c(0.25, 0.75))
+  slope <- diff(y)/diff(x)
+  int <- y[1L] - slope * x[1L]
+  d <- data.frame(resids = vec)
+  # confidence intervals ----
+  x <- d$resids
+  ord <- order(x)
+  ord.x <- x[ord]
+  n <- dim(d)[1]
+  #
+  P <- ppoints(n)
+  z <- qnorm(P)
+  a <- coef(MASS::rlm(ord.x~z))[1]
+  b <- coef(MASS::rlm(ord.x~z))[2]
+  #
+  d$z <- z
+  zz<-qnorm(1-(1-conf)/2)
+  SE <- (b/dnorm(d$z))*sqrt(P*(1-P)/n)     #[WHY?]
+  fit.value <- a+b*d$z
+  d$upper <- fit.value+zz*SE
+  d$lower <- fit.value-zz*SE
+
+  
+
+  ggplot(d, aes(sample = resids)) +
+    geom_abline(intercept = int, slope = slope, color = "grey50",linetype="dashed") +
+    stat_qq() +
+    geom_line(data=d, aes(z,upper),color = "grey50",linetype="dashed") +
+    geom_line(data=d, aes(z,lower),color = "grey50",linetype="dashed") +
+    labs(y="Std. residuals", x="Theoretical quantiles", color="") +
+    theme_TS()
+}
+
 
 # Multiple plot function
 #
@@ -89,16 +126,857 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   }
 }
 
+res_ana_plot <- function(res,fit) {
+  fit_df <- data.frame(t = 1:length(res),
+                     res = res,
+                     res_sd = (res-mean(res)) / sd(res),
+                     res_sd_sqrt = sqrt(abs((res-mean(res)) / sd(res))),
+                     fit = fit)
+
+
+
+no_bins <- as.integer(diff(range(fit_df$res)) / (2 * IQR(fit_df$res) / length(fit_df$res)^(1/3)))
+# res vs fit
+multiplot(ggplot(fit_df, aes(x=res)) + 
+  geom_histogram(bins = no_bins, aes(color = ""), alpha = 1/2) +
+  labs(x="Residuals", y="Count",color = "") +
+  theme_TS() + 
+  theme(legend.position="none"),
+ggplot(fit_df) + 
+  geom_abline(intercept = 0, slope = 0,color = "grey50",linetype="dashed") +
+  geom_point(aes(fit,res)) +
+  geom_smooth(aes(fit,res), fill=NA, method = "loess", span = 1) +
+  labs(x="(log) Fitted values", y="Residuals") +
+  theme_TS(),
+# scale location
+ggplot(fit_df) + 
+  geom_point(aes(fit,res_sd_sqrt)) +
+  geom_smooth(aes(fit,res_sd_sqrt), fill=NA, method = "loess", span = 1) +
+  labs(x="(log) Fitted values", y="sqrt(|Std. residuals|)") +
+  theme_TS(),
+# qq
+qqplot.data(fit_df$res_sd), cols=2)
+  
+}
+```
+
+```{r include=FALSE}
+# get data 
+# dat <- readr::read_csv("~/DTU/Courses/ADSM/Projects/pro_1/dioxin.csv") 
+
+dioxin <- read.table(file = "~/DTU/Courses/ADSM/Projects/pro_1/dioxin.csv", sep = ",", header =T) 
+dioxin <- dioxin %>% mutate(idx = 1:dim(dioxin)[1], 
+                            TIME = as.factor(TIME))
+N <- dim(dioxin)[1]
+
+dioxin <- dioxin %>% filter(complete.cases(.))
+N_clean <- dim(dioxin)[1]
+
+#
+ALPHA <- 0.05
 
 ```
-Sparring partners:
-\begin{itemize}
-\item Anja Liljedahl Christensen (s162876)
-\item Marie Mørk (s112770)
-\end{itemize}
 
-# Question 1
+There are `r N - N_clean` incomplete rows within the given data. It has been chosen to exclude these rows in order to get a tidy data set. There are several common approaches to comprehend incomplete observations; one would be to replace the value by the expected mean value; another would be to sort the concentrations of `dioxin` and then perform linear interpolation. 
+
+The tidy data set includes `r N_clean` observations for further modelling.
+
+This assignment is based upon in-sample modelling and therefore any kind of train, validate and test approaches has not been considered.
+
+## Q1
+Figure \ref{fig_1_1} visualizes the `dioxin` concentration for the `r N_clean` observations.
+
+
+```{r, fig.cap="\\label{fig_1_1}Concentration as function of observation."}
+ggplot(dioxin, aes(x=idx, y=DIOX)) +
+    geom_point() + theme_TS()
+```
+
+As illustrated in the plot above there are few a odd observations. The `dioxin` concentrations above `1000` does not fit into the concentration pattern. 
+
+The output below illustrate selected statistics of the `dioxin` concentrations.
 ```{r}
-plot(mtcars$mpg)
+summary(dioxin$DIOX)
+```
+It is clear to see the great difference between the median and the mean value. There is a percentage gap of: `r round((mean(dioxin$DIOX) - median(dioxin$DIOX)) / mean(dioxin$DIOX) * 100,3)`$\%$.
+The gap is an identification of a right skewed distribution. 
+
+This intuition is supported by the histogram plot in figure \ref{fig_1_2}. The number of bins have been selected according to [Freedman–Diaconis rule](https://en.wikipedia.org/wiki/Freedman–Diaconis_rule) (\ref{eq_1_1}).
+
+\begin{equation}
+no\_bin \left( x,n  \right) = 2 \frac{IQR\left( x \right) }{\sqrt [3]{n}}
+\label{eq_1_1}
+\end{equation}
+where $x$ is vector of elements and $n$ is the number of elements.
+
+```{r, fig.cap="\\label{fig_1_2}Histogram of the concentration."}
+# Freedman–Diaconis rule
+# https://en.wikipedia.org/wiki/Freedman–Diaconis_rule
+
+no_bins <- as.integer(diff(range(dioxin$DIOX)) / (2 * IQR(dioxin$DIOX) / length(dioxin$DIOX)^(1/3)))
+
+ggplot(dioxin, aes(x=DIOX)) + 
+  geom_histogram(bins = no_bins, aes(color = paste0("Hist, ",no_bins," bins used")), alpha = 1/2) +
+  # geom_density(aes(color = paste0("Density curve, ",no_bins," bins used")), alpha = 1/2) +
+  labs(color = "") +
+  theme_TS()
 ```
 
+The distribution of the `dioxin` concentrations are clearly right skewed in figure \ref{fig_1_2}. Recalling lecture 1, this is normal for variables which only can be positive such as concentrations. The solution to improve this is to take the log transformation.
+
+\newpage
+
+Figure \ref{fig_1_3} and figure \ref{fig_1_4} shows the log distribution which fits the normal distribution better.
+
+```{r, fig.cap="\\label{fig_1_3}Log transformed concentration as a function of observation."}
+dioxin <- dioxin %>% mutate(DIOX_log = log(DIOX))
+ggplot(dioxin, aes(x=idx, y=DIOX_log)) +
+    geom_point() + theme_TS()
+```
+
+```{r, fig.cap="\\label{fig_1_4}Histogram of the log transformed concentration."}
+no_bins <- as.integer(diff(range(dioxin$DIOX_log)) / (2 * IQR(dioxin$DIOX_log) / length(dioxin$DIOX_log)^(1/3)))
+ggplot(dioxin, aes(x=DIOX_log, y=..density..)) + 
+  geom_histogram(bins = no_bins, aes(color = paste0("Hist, ",no_bins," bins used")), alpha = 1/2) +
+  labs(color = "") +
+  theme_TS()
+```
+The log distribution of the concentrations is not perfect but good enough for now.
+The output below shows a much lower percentage difference between the value of the median and of the value of the mean. 
+
+```{r}
+summary(dioxin$DIOX_log)
+```
+
+The percentage difference is now: `r round((mean(dioxin$DIOX_log) - median(dioxin$DIOX_log)) / mean(dioxin$DIOX_log) * 100,3)`$\%$ after the log transformation.
+
+\newpage
+### Analysis of variables
+
+Recalling the description of the variables in the assignment:
+
+* Dependent variable
+    * `DIOX`
+* Block variables
+    * `PLANT`
+    * `TIME`
+    * `LAB` 
+* Active variables
+    * `OXYGEN` Oxygen surplus in gas
+    * `LOAD` Plant load 
+    * `PRSEK` Air distribution (primary/secondary)
+    * `O2`, `O2COR`
+    * `NEFFEKT`
+    * `QRAT`
+* Passive variables
+    * `QROEG` Gas flow (m3/h)
+    * `TOVN` Combustion chamber temperature (oC)
+    * `TROEG` Gas temperature (oC)
+    * `POVN` Pressure in the chamber
+    * `CO2` (ppm)
+    * `CO` (ppm)
+    * `SO2` (mg/m3)
+    * `HCl` (mg/m3)
+    * `H2O` (%)
+
+```{r}
+active_var <- c("OXYGEN","LOAD","PRSEK","O2","O2COR","NEFFEKT","QRAT")
+block_var <- c("PLANT","TIME","LAB")
+passive_var <- c("QROEG","TOVN","TROEG","POVN","CO2","CO","SO2","HCL","H2O")
+```
+
+\newpage 
+#### Block variables
+<!--
+HIGH CORRELATED -> average variables -> avergae out NOISE....
+-->
+The following three plots in figure \ref{fig_1_5} can be used to see whether the given variable can be used as a good explanatory variable. If the distribution for a given level of a block variable is different compared to the distributions of the other levels, the block variable may be a suitable explanatory variable for the model. If the distribution of the levels in the block variable are similar, the block variable does only provide a bias which will be corrected in the intercept. It causes a simpler model when excluding such a variable.
+
+Figure \ref{fig_1_5} shows multiple box whisker plots of the `PLAT`, `TIME` and `LAB` variables.
+```{r, fig.cap="\\label{fig_1_5}Box plot of the log transformed dioxin concentrations as a function of PLANT, TIME and LAB."}
+multiplot(dioxin %>% select(DIOX_log, PLANT) %>% 
+  ggplot(., aes(PLANT, DIOX_log)) + geom_boxplot() + theme_TS(),
+  dioxin %>% select(DIOX_log, TIME) %>%
+  ggplot(., aes(TIME, DIOX_log)) + geom_boxplot() + theme_TS(),
+  dioxin %>% select(DIOX_log, LAB) %>% 
+  ggplot(., aes(LAB, DIOX_log)) + geom_boxplot() + theme_TS(),
+  cols=3)
+  
+```
+
+The measured log transformed concentrations does clearly depend on the given `PLAT`. 
+This can identicate that the `PLANT` variable can be a good explanatory variable.
+
+The difference between the two box whisker plots in figure \ref{fig_1_5}(TIME) shows a much higher similarity despite the larger range when `TIME = 1`. The 25, 50 and 75 quantiles are closer compared to the previous plot in figure \ref{fig_1_5}(PLANT). 
+
+The same previously mentioned pattern is again illustrated in the `LAB` variable. The variance of the `LAB=USA` is also larger compared to `LAB=KK`. See figure \ref{fig_1_5}(LAB).
+
+All block variables will be included in the initial "simple additive model". The archived knowledge from figure \ref{fig_1_5}(PLANT) to figure \ref{fig_1_5}(LAB) can be used in the backwards selection when reducing the model. 
+
+\newpage
+#### Passive variables
+
+Figure \ref{fig_1_8} shows the correlation between the passive variables. 
+```{r, fig.cap="\\label{fig_1_8} Correlation between passive variables."}
+df_plot <- dioxin %>% select(passive_var) %>% cor(.) %>% reshape2::melt(.)
+ggplot(df_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", name="correlation") +
+  geom_tile(color = "white") +
+  scale_x_discrete(limits = rev(levels(df_plot$Var2))) +
+  labs(x = "", y = "", color = "") +
+  theme_TS()
+n_head <- 5
+```
+
+As mentioned in previous section it is not wanted to have multiple variables which provide the same level of information. The output below reports a table with "head(`r n_head`)" of the passive variables with the highest absolute correlation. 
+
+```{r}
+df_plot %>% 
+  mutate(abs_value = abs(value)) %>% 
+  select(Var1, Var2, abs_value) %>% 
+  filter(abs_value != 1.0) %>% 
+  arrange(desc(abs_value)) %>% 
+  distinct(abs_value,.keep_all = T) %>% 
+  head(n_head)
+passive_var_not_log <- c("TOVN", "TROEG", "POVN")
+passive_var_log <- passive_var[!(passive_var %in% c("TOVN", "TROEG", "POVN"))]
+```
+
+`TROEG` and `QROEG`, `TOVN` and `QROEG`, `H2O` and `CO2` does have a high correlation close to $\left|1\right|$. The high correlations can be supported by the physical relations among the variables. 
+
+\newpage
+
+Figure \ref{fig_1_9} visualizes the distributions of all the passive variables. All the passive variables have a concentration unit apart from the following variables: `r paste(passive_var_not_log, collapse=", ")`.
+
+```{r, fig.cap="\\label{fig_1_9} Distribution plot of the passive variables."}
+dioxin %>% select(passive_var) %>%
+  tidyr::gather() %>%                             # Convert to key-value pairs
+  ggplot(aes(value)) +                     # Plot the values
+    facet_wrap(~ key, scales = "free") +   # In separate panels
+    geom_density() +
+    theme_TS()
+
+```
+
+Recalling from lecture one, a log transformation of these passive variables will remove the right skeweness of their distributions. The passive variables has been divided into two groups; `r paste(passive_var_not_log, collapse=", ")` and `r  paste(passive_var_log, collapse=", ")`. 
+
+Figure \ref{fig_1_10} visualizes a new distribution plot of the latter of the before mentioned groups.
+
+```{r, fig.cap="\\label{fig_1_10}Distribution plot of the log transformed passive variables."}
+dioxin %>% select(passive_var_log) %>% 
+  mutate_all(funs(log)) %>% 
+  tidyr::gather() %>%                             # Convert to key-value pairs
+  ggplot(aes(value)) +                     # Plot the values
+    facet_wrap(~ key, scales = "free") +   # In separate panels
+    geom_density() +
+    theme_TS()
+
+```
+
+\newpage
+#### Active variables
+Figure \ref{fig_1_11_0} shows the correlation between the numeric active variables. 
+```{r, fig.cap="\\label{fig_1_11_0} Correlation between passive variables."}
+df_plot <- dioxin %>% select(O2,O2COR,NEFFEKT,QRAT) %>% cor(.) %>% reshape2::melt(.)
+ggplot(df_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", name="correlation") +
+  geom_tile(color = "white") +
+  scale_x_discrete(limits = rev(levels(df_plot$Var2))) +
+  labs(x = "", y = "", color = "") +
+  theme_TS()
+n_head <- 5
+```
+
+Figure \ref{fig_1_11} visualizes a 3x3 box plots of `log_DIOX` as a function of the levels in `OXYGEN`, `LOAD` and `PRSEK`.
+```{r, fig.cap="\\label{fig_1_11}Box plot of the log transformed dioxin concentrations as a function of OXYGEN, LOAD and PRSEK."}
+multiplot(dioxin %>% select(DIOX_log, OXYGEN) %>% 
+  ggplot(., aes(OXYGEN, DIOX_log)) + geom_boxplot() + theme_TS(),
+  dioxin %>% select(DIOX_log, LOAD) %>% 
+  ggplot(., aes(LOAD, DIOX_log)) + geom_boxplot() + theme_TS(),
+  dioxin %>% select(DIOX_log, PRSEK) %>% 
+  ggplot(., aes(PRSEK, DIOX_log)) + geom_boxplot() + theme_TS(), cols=3)
+  
+```
+
+Figure \ref{fig_1_12} shows the distribution plots of the numeric active variables.
+
+```{r, fig.cap="\\label{fig_1_12}Distribution plot of the numeric active variables."}
+dioxin %>% select(O2,O2COR,NEFFEKT,QRAT) %>%
+  tidyr::gather() %>%
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_density() +
+    theme_TS()
+```
+
+\newpage
+## Q2
+
+The following variables have been considered in the first simple additive model:
+
+`r (paste0("* ", c(active_var, block_var), collapse = "\n"))`
+
+The notation of the additive model is given in (\ref{eq_2_1}).
+
+\begin{equation}
+Y_{ DIOX_{ log } }=X \beta +\epsilon 
+\label{eq_2_1}
+\end{equation}
+
+where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+
+\begin{equation*}
+X =\begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & \cdots & PLANT & TIME & LAB \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
+\end{equation*}
+
+
+The underlying asspumtions for the linear model are as follows:
+
+* Ther must be a linear and additive relation between the dependent variable and the explanatory varialbes. The effects of multiple explanatory varialbes are additive. 
+* The residuals must be independent and must not have any relation to the consecutive residauls. 
+* The residuals must be have a constant variance over time, as a function of the independent variable and as a function of the any of the explanatory variables.
+* The residuals must follow: $\epsilon \sim \mathcal{N}(0,\,1)$.
+
+The systematic variance explained by the model may be in a higher degree biased and the prediction, confidence intervals may be misleading if any of these underlying asspumtions is violated.
+
+$\beta$ can be estimated by using several apporaches. It has been chosen to use the native `lm()` function in order to estimate the wanted $\beta$ despite it is possible to estimate $\beta$ in the following manner: $\widehat { \beta } =\left(  X'X\right)^{-1}X'y$. The model object from `lm()` does provide more informative statistics out of the box.
+
+```{r}
+fit_2_1 <- lm(DIOX_log ~ 1 + OXYGEN + LOAD + PRSEK + O2 + O2COR + NEFFEKT + QRAT + PLANT + TIME + LAB, data = dioxin)
+drop1(fit_2_1, test = "F")
+# anova(fit_2_1)
+# summary(fit_2_1)
+```
+
+The output above shows the `drop1()` table of the fitted initial model. 
+
+A brief overview shows that the majority of the variables does not have a significant parameter estimate. `O2` and `O2COR` does not have an estimate at all. This the due to their multicollinearity. The correlation is illustrated in figure \ref{fig_1_11_0}. A suitable counter approach would be to use Ridge regression or other regularization techniques which are shrinking the variance of the parameter or simply just remove one of the highly correlated variables.
+
+### Model reduction
+It is needed to do a model reduction in order to optimize and simplify the model. This is an iterative process where one parameter will be removed at a time and the model will be re-estimated. 
+
+#### The iterative process 
+It has been chosen to follow the principle of backward elimination and using the highest value of `Pr(>F)` as an exclution criteria until all parameters have a significant estimate (`Pr(>F) < 0.05`). The `drop1(fit, test = "F")` function has been applied in order to comprehend the backward elimination.
+
+The following outlines the backward elimination approach:
+
+* Remove parameter: `O2` due to high collinearity between `O2` and `O2COR` (see figure \ref{fig_1_11_0}).
+```{r}
+drop1(fit_2_1, test = "F")
+# row.names(drop1(fit_2_1, test = "F"))[which.max(drop1(fit_2_1, test = "F")$`Pr(>F)`)]
+fit_2_2 <- update(fit_2_1,.~. -O2)
+```
+
+* Remove parameter: `PRSEK`
+```{r}
+# drop1(fit_2_2, test = "F")
+# row.names(drop1(fit_2_2, test = "F"))[which.max(drop1(fit_2_2, test = "F")$`Pr(>F)`)]
+fit_2_3 <- update(fit_2_2,.~. -O2 -PRSEK)
+```
+
+* Remove parameter: `LOAD`
+```{r}
+# drop1(fit_2_3, test = "F")
+# row.names(drop1(fit_2_3, test = "F"))[which.max(drop1(fit_2_3, test = "F")$`Pr(>F)`)]
+fit_2_4 <- update(fit_2_3,.~. -O2 -PRSEK -LOAD)
+```
+
+* Remove parameter: `OXYGEN`
+```{r}
+# drop1(fit_2_4, test = "F")
+# row.names(drop1(fit_2_4, test = "F"))[which.max(drop1(fit_2_4, test = "F")$`Pr(>F)`)]
+fit_2_5 <- update(fit_2_4,.~. -O2 -PRSEK -LOAD - OXYGEN)
+```
+
+* Remove parameter: `QRAT`
+```{r}
+# drop1(fit_2_5, test = "F")
+# row.names(drop1(fit_2_5, test = "F"))[which.max(drop1(fit_2_5, test = "F")$`Pr(>F)`)]
+fit_2_final <- update(fit_2_5,.~. -O2 -PRSEK -LOAD - OXYGEN -QRAT)
+drop1(fit_2_final, test = "F")
+```
+
+
+### Final model
+
+The model in (\ref{eq_2_2}) can be conducted from the output above. 
+
+\begin{equation}
+\resizebox{\linewidth}{!}{$Y_{ DIOX_{ log } }=\begin{bmatrix} 1 & `r paste0(names(coef(fit_2_final))[-1], collapse = "&")` `r paste0("\\\\ ", paste0("\\",rep("vdots",fit_2_final["rank"]), collapse = "&"))`   \end{bmatrix} \begin{bmatrix}  `r paste0(round(coef(fit_2_final),4), collapse = "\\\\")`   \end{bmatrix} +\epsilon$}
+\label{eq_2_2}
+\end{equation}
+
+Table \ref{tab_2_final} reports the estimated parameters and their belonging standard errors.
+
+```{r}
+knitr::kable(summary(fit_2_final)$coefficients[,c("Estimate","Std. Error")],
+             caption = "\\label{tab_2_final}")
+```
+
+<!--
+* WE WANT TO CHECK THE ASSUMPTIONS::!!!
+* Stadardized residuals : :: Identify outliers!!
+* Leverage: check elements if the are far aweay from the design matrix...
+-->
+
+A residual analysis has been conducted in order to check the assumptions from the modelling part, see figure \ref{fig_2_1}.
+
+```{r, echo=FALSE, fig.cap="\\label{fig_2_1}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+res_ana_plot(fit_2_final$residuals, fit_2_final$fitted.values)
+```
+
+It is possible to state that the estimated model does a reasonable job for modelling the dependent variable `DIOX_log` by considering the plots in figure \ref{fig_2_1}. All though, it should be mentioned that:
+
+* The histogram shows an acceptable distribution of the residuals. 
+* The scatter plot with the residuals as a function of the fitted values shows a similar acceptable distribution of the residuals. The residuals are not perfectly white noise, which is illustrated by the curvature of the blue line. 
+* The scale-location plot visualizes the standardized residuals as a function of the fitted values. It shows that the relative error grows as a function of the `DOIX` concentration. 
+* The QQ-plot states that the standardized residuals of the model have acceptable distribution. All residuals are within the two `r as.integer((1-ALPHA)*100)`% confidence bands.
+
+\newpage
+## Q3
+
+The parameters for a similar model with only the measured active variables are given below:
+
+`r (paste0("* ", c("O2","O2COR","NEFFEKT","QRAT", block_var), collapse = "\n"))`
+
+The model is still on the same structure as (\ref{eq_2_1}) and the procedure for estimating the model is the same as ealier in question two. 
+In order to reduce the amount of pages the model reduction will not be as comprehensive as ealier. The output below reports the initial fit of the model with measured active variables and block variables.
+```{r}
+fit_3_1 <- lm(DIOX_log ~ 1 + O2 + O2COR + NEFFEKT + QRAT + PLANT + TIME + LAB, data = dioxin)
+drop1(fit_3_1, test = "F")
+# row.names(drop1(fit_2_5, test = "F"))[which.max(drop1(fit_2_5, test = "F")$`Pr(>F)`)]
+```
+
+### Model reduction
+The numbered list contains the excluded parameters in given order:
+
+1. `O2` - removed w.r.t. multicollinearity.
+1. `QRAT` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+
+```{r}
+fit_3_final <- update(fit_3_1,.~. -O2 -QRAT)
+drop1(fit_3_final, test = "F")
+# row.names(drop1(fit_3_final, test = "F"))[which.max(drop1(fit_3_final, test = "F")$`Pr(>F)`)]
+```
+
+The model is similar to the model (\ref{eq_2_2}) and table \ref{tab_2_final}. All the estimated parameters and its derived statistics are identical after removing those two mentioned parameters. The residual plots are hereby similar to figure \ref{fig_2_1} and are therefore not included.
+
+
+\newpage
+## Q4
+The following assumptions have been made in order to create a prediction of the `DIOX` concentration: 
+
+* `TIME = 1`
+
+Table \ref{tab_4_1} reports the input values to the model object.
+```{r}
+pred_df <- data.frame(O2COR=0.5,
+                      NEFFEKT=-0.01,
+                      # QRAT=0.5,
+                      LAB="KK",
+                      PLANT="RENO_N",
+                      TIME="1")
+
+knitr::kable(pred_df, caption = "\\label{tab_4_1}Input values for the prediction.")
+```
+
+The native `predict()` function takes the derived model object and the new input (table \ref{tab_4_1}) as arguments.
+
+It has been chosen to use the t-distribution rather than the normal distribution in order to calculate the `r as.integer((1-ALPHA)*100)`% prediction intervals. The t-distribution does consider the degrees of freedom within the model and takes care of the estimated parameters. 
+The chunk below illustrates the approach:
+
+```{r, echo=TRUE}
+# predict the DIOX_log concentration
+y_hat_log <- predict(fit_3_final, newdata = pred_df)
+# calculate prediction intervals and do inverse log transform
+y_hat_CI <- exp(y_hat_log + 
+                  qt(1-ALPHA, df = fit_3_final$df.residual) * 
+                  sd(fit_3_final$residuals) / sqrt(length(fit_3_final$residuals)) * 
+                  c(-1,0,1)) # get lower CI, y_hat and higher CI
+```
+
+Table \ref{tab_4_2} reports the prediction based upon the inputs from the table above.
+
+```{r}
+knitr::kable(data.frame(`Low CI` = y_hat_CI[1],
+                        y_hat = y_hat_CI[2],
+                        `High CI` = y_hat_CI[3]), 
+             caption = paste0("\\label{tab_4_2}Predicted DIOX concentration and its ", as.integer((1-ALPHA)*100),"% prediction interval"))
+```
+
+
+\newpage
+## Q5
+The model depends on the following operation conditions:
+
+* `O2COR` with a coefficient value of: `r fit_3_final$coefficients[names(fit_3_final$coefficients) == "O2COR"]`
+* `NEFFEKT` with a coefficient value of: `r fit_3_final$coefficients[names(fit_3_final$coefficients) == "NEFFEKT"]`
+
+<!--
+The magnitude of the coefficient value of the `NEFFEKT` variable does does contribute to the additive effect in the linear model. This coefficient implies a high contribution to the above mentioned operation conditions.
+-->
+
+It is requried to decrease the value of `O2COR` (oygen surplus in the gas `OXYGEN`) and the level of `NEFFEKT`in order to decrease the `dioxin` (plant load design variable `LOAD`) concentration based upon the latter reported model coefficients.
+
+Several t-tests have been conducted in order to test wheter the suggestions does have a significant effect.
+
+### Minimizing the level plant load (`LOAD`)
+```{r}
+#
+load_test_stat <- dioxin %>% 
+  group_by(LOAD) %>% 
+  summarise(M =mean(DIOX_log),
+            SD=sd(DIOX_log))
+
+load_test_1 <- t.test(dioxin %>% filter(LOAD == "L") %>% select(DIOX_log),
+                      dioxin %>% filter(LOAD == "N") %>% select(DIOX_log))
+load_test_2 <- t.test(dioxin %>% filter(LOAD == "L") %>% select(DIOX_log),
+                      dioxin %>% filter(LOAD == "H") %>% select(DIOX_log))
+```
+
+* `LOAD` from `H` to `L`
+    * $H_0:$ `H` $=$ `L`
+    * $H_1:$ `H` $\neq$ `L`
+
+There is a significant difference in the mean values of `H` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "H","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "H","SD"]`$) and `L` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "L","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "L","SD"]`$).
+
+The following test statistics have been conducted; $t(`r load_test_2["parameter"]`)=`r load_test_2["statistic"]`$, $p=`r load_test_2["p.value"]`$.
+
+* `LOAD` from `N` to `L`
+    * $H_0:$ `N` $=$ `L`
+    * $H_1:$ `N` $\neq$ `L`
+
+There is a significant difference in the mean values of `N` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "N","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "N","SD"]`$) and `L` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "L","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "L","SD"]`$).
+
+The following test statistics have been conducted; $t(`r load_test_1["parameter"]`)=`r load_test_1["statistic"]`$, $p=`r load_test_1["p.value"]`$.
+
+
+### Minimizing the value of oxygen surplus (`OXYGEN`)
+```{r}
+#
+oxygen_test_stat <- dioxin %>% 
+  group_by(OXYGEN) %>% 
+  summarise(M =mean(DIOX_log),
+            SD=sd(DIOX_log))
+
+oxygen_test_1 <- t.test(dioxin %>% filter(OXYGEN == "L") %>% select(DIOX_log),
+                        dioxin %>% filter(OXYGEN == "N") %>% select(DIOX_log))
+oxygen_test_2 <- t.test(dioxin %>% filter(OXYGEN == "L") %>% select(DIOX_log),
+                        dioxin %>% filter(OXYGEN == "H") %>% select(DIOX_log))
+```
+
+* `OXYGEN` from `H` to `L`
+    * $H_0:$ `H` $=$ `L`
+    * $H_1:$ `H` $\neq$ `L`
+
+There is not a significant difference in the mean values of `H` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "H","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "H","SD"]`$) and `L` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "L","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "L","SD"]`$).
+
+The following test statistics have been conducted; $t(`r oxygen_test_2["parameter"]`)=`r oxygen_test_2["statistic"]`$, $p=`r oxygen_test_2["p.value"]`$.
+
+* `OXYGEN` from `N` to `L`
+    * $H_0:$ `N` $=$ `L`
+    * $H_1:$ `N` $\neq$ `L`
+
+There is not a significant difference in the mean values of `N` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "N","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "N","SD"]`$) and `L` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "L","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "L","SD"]`$).
+
+The following test statistics have been conducted; $t(`r oxygen_test_1["parameter"]`)=`r oxygen_test_1["statistic"]`$, $p=`r oxygen_test_1["p.value"]`$.
+
+### Evaluation of the suggestions
+According to the test setups it is possible to:
+
+* Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `H` to `L`.
+* Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `N` to `L`
+* Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `H` to `L`.
+* Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `N` to `L`.
+
+From the concudted test the suggestion is to decreace the `LOAD` in the setup. 
+
+\newpage
+## Q6
+It has been chosen to derive hypothesis in order to test the block effects between the MSW plants and between the two laboratories.
+
+### Differences between the MSW plants
+From the coefficients of model (\ref{eq_2_2}) is it possible to see the different values of the `PLANT` variable. The parametre estimates are tested:
+
+```{r}
+#
+plant_test_stat <- dioxin %>% 
+  group_by(PLANT) %>% 
+  summarise(M =mean(DIOX_log),SD=sd(DIOX_log))
+
+plant_test_1 <- t.test(dioxin %>% filter(PLANT == "KARA") %>% select(DIOX_log),
+                       dioxin %>% filter(PLANT == "RENO_N") %>% select(DIOX_log))
+
+plant_test_2 <- t.test(dioxin %>% filter(PLANT == "KARA") %>% select(DIOX_log),
+                       dioxin %>% filter(PLANT == "RENO_S") %>% select(DIOX_log))
+
+plant_test_3 <- t.test(dioxin %>% filter(PLANT == "RENO_S") %>% select(DIOX_log),
+                       dioxin %>% filter(PLANT == "RENO_N") %>% select(DIOX_log))
+```
+
+* $H_0:$ `KARA` $=$ `RENO_N` $=$ `RENO_S`
+* $H_1:$ `KARA` $\neq$ `RENO_N` $\neq$ `RENO_S`
+
+#### Sub testing
+
+* `KARA` and `RENO_N`
+
+There is a significant difference in the mean values of `KARA` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "KARA","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "KARA","SD"]`$) and `RENO_N` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_N","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_N","SD"]`$).
+
+The following test statistics have been conducted; $t(`r plant_test_1["parameter"]`)=`r plant_test_1["statistic"]`$, $p=`r plant_test_1["p.value"]`$.
+
+* `KARA` and `RENO_S`
+
+There is a significant difference in the mean values of `KARA` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "KARA","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "KARA","SD"]`$) and `RENO_S` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_S","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_S","SD"]`$).
+
+The following test statistics have been conducted; $t(`r plant_test_2["parameter"]`)=`r plant_test_2["statistic"]`$, $p=`r plant_test_2["p.value"]`$.
+
+* `RENO_S` and `RENO_N`
+
+There is a significant difference in the mean values of `RENO_S` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_S","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_S","SD"]`$) and `RENO_N` ($\mu=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_N","M"]`$, $\sigma=`r plant_test_stat[plant_test_stat["PLANT"] == "RENO_N","SD"]`$).
+
+The following test statistics have been conducted; $t(`r plant_test_3["parameter"]`)=`r plant_test_3["statistic"]`$, $p=`r plant_test_3["p.value"]`$.
+
+
+Tt is possible to reject the $H_0$ by summaring the three above conducted tests. When $H_0$ is rejected it is meaningfull to include the `PLANT` variable in the model.
+
+### Differences between the two laboratories?
+
+From the coefficients of model (\ref{eq_2_2}) is it possible to see, that `USA` (laboratory in USA) tends to measure a higher concentration of `DIOX_log=``r fit_3_final$coefficients[names(fit_3_final$coefficients) == "LABUSA"]` compared to the `KK` (laboratory in Denmark). This is an expected parameter estimate according to the findings in figure \ref{fig_1_5}.
+
+```{r}
+#
+lab_test_stat <- dioxin %>% 
+  group_by(LAB) %>% 
+  summarise(M =mean(DIOX_log),SD=sd(DIOX_log))
+#
+lab_test <- t.test(dioxin %>% filter(LAB == "USA") %>% select(DIOX_log),
+                   dioxin %>% filter(LAB == "KK") %>% select(DIOX_log))
+```
+
+* $H_0:$ `USA` $=$ `KK`
+* $H_1:$ `USA` $\neq$ `KK`
+
+There is not a significant difference in the mean values of `USA` ($\mu=`r lab_test_stat[lab_test_stat["LAB"] == "USA","M"]`$, $\sigma=`r lab_test_stat[lab_test_stat["LAB"] == "USA","SD"]`$) and `KK` ($\mu=`r lab_test_stat[lab_test_stat["LAB"] == "KK","M"]`$, $\sigma=`r lab_test_stat[lab_test_stat["LAB"] == "KK","SD"]`$).
+
+The following test statistics have been conducted; $t(`r lab_test["parameter"]`)=`r lab_test["statistic"]`$, $p=`r lab_test["p.value"]`$.
+
+$H_0$ is therefore accepted.
+
+\newpage
+## Q7
+The initial final model does include a second term for the numeric explanatory variables which can provide a better description of the total variation. 
+The initial model does also include a interaction terms between `LAB:OXYGEN`, `LAB:LOAD`, `LAB:PRSEK` and `PLANT:OXYGEN`, `PLANT:LOAD`,`PLANT:PRSEK`.
+
+The notation of the initial final model is given in (\ref{eq_7_1}).
+
+\begin{equation}
+Y_{ DIOX_{ log } }=X \beta +\epsilon 
+\label{eq_7_1}
+\end{equation}
+where $\beta$ are the parameters up for estimation and $X$ is the design matrix given below:
+\begin{equation*}
+X =\begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & O2 & O2^2 & \cdots \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
+\end{equation*}
+
+The following passive variables have been log-transformed: `r paste(passive_var_log, collapse = ", ")`.
+
+```{r}
+# transform variables
+dioxin <- dioxin %>% 
+  mutate(QROEG_log = log(QROEG),
+         CO2_log = log(CO2),
+         CO_log = log(CO),
+         SO2_log = log(SO2),
+         HCL_log = log(HCL),
+         H2O_log = log(H2O))
+```
+```{r, echo=TRUE}
+# initial final model ready for model reduction
+fit_7_1 <- lm(DIOX_log ~ 1 + OXYGEN + LOAD + PRSEK + O2 + O2COR + NEFFEKT + QRAT + 
+              PLANT + TIME + LAB + 
+              QROEG_log + CO2_log + CO_log + SO2_log + HCL_log + H2O_log + 
+              TOVN + TROEG +POVN + 
+              PLANT:OXYGEN + PLANT:LOAD + PLANT:PRSEK +
+              LAB:OXYGEN + LAB:LOAD + LAB:PRSEK +
+              I(O2^2) + I(O2COR^2) + I(NEFFEKT^2) + I(QRAT^2) + I(QROEG_log^2) + 
+              I(CO2_log^2) + I(CO_log^2) + I(SO2_log^2) + I(HCL_log^2) + 
+              I(H2O_log^2) + I(TOVN^2) + I(TROEG^2) + I(POVN^2), data = dioxin)
+```
+### Model reduction
+The numbered list represents the exclusion order of the variables. The exclusion order is determined by `Pr(>F)` in the drop1() table and the stopping criteria is `Pr(>F) > 0.05`.
+
+1. `O2` and `I(O2^2)` due to high collinearity between `O2` and `O2COR` (see figure \ref{fig_1_11_0}).
+1. `PRSEK` unbalanced number of observations for each level.
+1. `LAB:PRSEK` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `PLANT:PRSEK` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(CO2_log^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `OXYGEN:PLANT` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `H2O_log` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `CO2_log` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(CO_log^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `QRAT` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(QRAT^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `CO_log` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(POVN^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `POVN` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `OXYGEN:LAB` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(NEFFEKT^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `TOVN` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(TOVN^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `O2COR` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(O2COR^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `OXYGEN` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `TIME` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `SO2_log` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `I(SO2_log^2)` - removed w.r.t. `Pr(>F)` in the `drop1()` table.
+1. `LOAD` - removed w.r.t. the value of the std. error compared to the estimate in the `summary(fit)` table.
+1. `PLANT:LOAD` - removed w.r.t. the value of the std. error compared to the estimate in the `summary(fit)` table.
+1. `LAB:LOAD` - removed w.r.t. the value of the std. error compared to the estimate in the `summary(fit)` table.
+
+
+```{r}
+fit_7_final <- update(fit_7_1,.~. -O2 -I(O2^2) -PRSEK -LAB:PRSEK -PLANT:PRSEK -I(CO2_log^2) -OXYGEN:PLANT -H2O_log -CO2_log -I(CO_log^2) -QRAT -I(QRAT^2) -CO_log -I(POVN^2) -POVN -OXYGEN:LAB -I(NEFFEKT^2) -TOVN -I(TOVN^2) -O2COR -I(O2COR^2) -OXYGEN -TIME -SO2_log -I(SO2_log^2) -LOAD -PLANT:LOAD -LAB:LOAD)
+# drop1(fit_7_final, test = "F")
+# row.names(drop1(fit_7_final, test = "F"))[which.max(drop1(fit_7_final, test = "F")$`Pr(>F)`)]
+```
+
+Table \ref{tab_7_final} reports the estimated parameters and their belonging standard errors for the final reduced model.
+
+```{r}
+knitr::kable(summary(fit_7_final)$coefficients[,c("Estimate","Std. Error")],
+             caption = "\\label{tab_7_final}")
+```
+
+
+<!--
+\begin{equation}
+\resizebox{\linewidth}{!}{$Y_{ DIOX_{ log } }=\begin{bmatrix} 1 & `r paste0(names(coef(fit_7_final))[-1], collapse = " & ")` `r paste0("\\\\ ", paste0("\\",rep("vdots",fit_7_final["rank"]), collapse = " & "))`   \end{bmatrix} \begin{bmatrix}  `r paste0(round(coef(fit_7_final),4), collapse = " \\\\ ")`   \end{bmatrix} +\epsilon$}
+\label{eq_7_final}
+\end{equation}
+-->
+
+Figure \ref{fig_7_1} illustrates the residual plots. 
+
+```{r, echo=FALSE, fig.cap="\\label{fig_7_1}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+res_ana_plot(fit_7_final$residuals, fit_7_final$fitted.values)
+```
+
+
+It is possible to conclude that the reduced model does a reasonable job of modelling the dependent variable `DIOX_log` from the residual plots. All though, it should be mentioned:
+
+* The histogram does not show a perfect bell shape.
+* The scatter plot with the residuals as a function of the fitted values shows a acceptable normal distribution of the residuals. The residuals are closer to white noise compared to figure \ref{fig_2_1}, which is illustrated by the placement and the curvature of the blue line. 
+* The scale-location plot shows a growth in the relative error as the function of the `DOIX` concentration increases.
+* All standardized residuals but one are within the two `r as.integer((1-ALPHA)*100)`% confidence bands in the QQ-plot.
+
+
+\newpage
+## Q8
+
+The process of delevoping a model which describes the variation of the measured dioxin at three municipal solid waste plants in Denmark is successfully obtained. The final model is reported in table \ref{tab_7_final}. The final model is depending on seven explanatory variables (three of these variables does have a second order term).
+
+The parameters of the model are: `NEFFEKT`, `PLANT`, `LAB`, `QROEG_log`, `HCL_log`, `TROEG`, `QROEG_log^2`, `HCL_log^2`, `TROEG^2` and `H2O_log^2`.
+
+The final model contains log-transformed passive variables, one active variable which is connected to the design setup (`LOAD`) and two block variables. 
+
+The inclusion of the block variables is caused by physical difference setups in three plants. The measured dioxin log-concentrations in the `RENO_N` plant tends to be $-1.271$ compared to the `KARA` plant. The measured dioxin log-concentrations in the `RENO_S` plant tends to be $-2.549$ compared to the `KARA` plant.
+Unfortunately the block variabel `LAB` has an influence on the measured dioxin concentration and therefore must be included in the model. The measured dioxin log-concentrations in the `USA` laboratory tends to be $-0.4171$ compared to `KK` laboratory. So grandmother, please use the `RENO_S` plant in order to minimize the release of dioxin from your waste.
+
+The final model repects the underlying assumptions of the linear model which means the model is suitable for producing a prediction of the dioxin concentrations. This saves an expensive and protracted process of sending samples to the laboratory.
+
+\newpage
+## Q9
+
+The precision (the lower variance) in the KK laboratory is visualized in the box plot in figure \ref{fig_1_5}. Eq. (\ref{eq_9_1}) summarizes the assumptions for the final model in table \ref{tab_7_final}. 
+\begin{equation}
+y \sim \mathcal{N}(x\hat {\beta  } ,\,\sigma^{2}\Sigma)
+\label{eq_9_1}
+\end{equation}
+where $x$ is the design matrix, $\Sigma$ is assumed to be the identity matrix ($\Sigma = I$) and $\sigma^2$ is estimated under the assumptions of a normal distributed linear model. But the KK laboratory has a smaller variance compared to the USA laboratory which is conflicting with the assumptions of $\Sigma = I$.
+
+It is possible to include the individuel precision of the two laboratories by parameterize $\Sigma$. Then is it possible to estimate $\hat{\beta}$, find $\sigma^2$ and calculate the maximum likelihood. See eq. (\ref{eq_9_2}).
+
+\begin{equation}
+\begin{aligned}
+\Sigma &=\begin{bmatrix}w_{KK} & & \\  & w_{USA}& \\  & & w_{USA} & \\ &&&\ddots  \end{bmatrix} \\
+\hat{\beta}&=\left(x^T\Sigma^{-1} x \right)^{-1} x^T\Sigma^{-1}y \\
+\sigma^2&=\frac{{  \left( y-x\hat{\beta} \right)}^T\left( y-x\hat{\beta} \right)}{n-k}
+\end{aligned}
+\label{eq_9_2}
+\end{equation}
+where $n-k$ is the degree of freedom in the model. It has been chosen to set $w_{KK}=1$ and only use the optimizer to find the relative value of $w_{USA}$ which is maximizing the likelihood. See the code chunk below:
+```{r, echo=TRUE}
+# define reponds, design matrix and weight vector corresponding to the LAB variable.
+y <- dioxin$DIOX_log %>% matrix()
+x <- matrix(model.matrix(fit_7_final), nrow = dim(fit_7_final$model)[1])
+weigths <- dioxin %>% mutate(LAB = ifelse(LAB == "USA", 0, 1)) %>% select(LAB)
+# maximum likelihood function
+MLE <- function(par, y, x, weigths) {
+  SIG <- diag(c(ifelse(weigths == 1, 1, par)))
+  beta_hat <- solve(t(x) %*% solve(SIG) %*% x) %*% t(x) %*% solve(SIG) %*% y
+  sig2 <- t(y - x %*% beta_hat) %*% (y - x %*% beta_hat) / fit_7_final$df.residual
+  # negative log-likelihood (using a minimztion algorithm)
+  return(-sum(dnorm(y, mean = x %*% beta_hat, sd = sqrt(sig2 %*% diag(SIG)), log = TRUE)))
+}
+# optimize weights with a fixed value for KK=1 and a initial value of USA=1.03
+w_USA_opt <- nlminb(start = 1.0, objective = MLE, y = y, x = x, weigths = weigths)$par
+# re-estimate with optimal weight for LAB = USA
+SIG <- diag(c(ifelse(weigths == 1, 1, w_USA_opt)))
+beta_hat <- solve(t(x) %*% solve(SIG) %*% x) %*% t(x) %*% solve(SIG) %*% y
+sig2 <- as.numeric(t(y - x %*% beta_hat) %*% (y - x %*% beta_hat) / fit_7_final$df.residual)
+# uncertainty of the weight estimate
+w_USA_opt <- w_USA_opt + 
+  qt(1-ALPHA, df = fit_3_final$df.residual) * 
+  sqrt(sig2) / sqrt(length(diag(SIG))) * c(-1,0,1) # get lower CI, y_hat and higher CI
+```
+The estimated weight is: $w_{USA}=`r round(w_USA_opt[2], 4)`$ with its confidence interval of $[ `r round(w_USA_opt[1], 4)`\,;\,`r round(w_USA_opt[3], 4)`]$ which describes the uncertainty in the estimate.
+
+Table \ref{tab_9_1} reports the measured variance of the two laboratories and eq. (\ref{eq_9_3}) reports the relative variance between the KK laboratory and the USA laboratory.
+```{r}
+tmp <- dioxin %>% group_by(LAB) %>% summarise(var = var(DIOX_log))
+knitr::kable(tmp, caption = "\\label{tab_9_1}Measured variance.")
+```
+
+<!--
+\begin{equation}
+1+`r round(tmp[tmp$LAB == "USA", "var"],4)`-`r round(tmp[tmp$LAB == "KK", "var"],4)` = `r round(1 + tmp[tmp$LAB == "USA", "var"] - tmp[tmp$LAB == "KK", "var"],4)`
+\label{eq_9_3}
+\end{equation}
+-->
+
+\begin{equation}
+1+\frac{`r round(tmp[tmp$LAB == "USA", "var"],4)`-`r round(tmp[tmp$LAB == "KK", "var"],4)`}{`r round(tmp[tmp$LAB == "KK", "var"],4)`}=`r 1+round((tmp[tmp$LAB == "USA", "var"] - tmp[tmp$LAB == "KK", "var"]) / tmp[tmp$LAB == "KK", "var"],4)`
+\label{eq_9_3}
+\end{equation}
+
+
+It can be seen that the measured relative variance of $w_{USA}$ is within the estimated MLE confidence interval; see (\ref{eq_9_3}) and figure \ref{fig_9_1}.
+
+
+```{r, echo=FALSE, fig.cap="\\label{fig_9_1}ML as a function of wUSA. MLE and measured relative variance of wUSA compared to wKK."}
+tmp1 <- data.frame(wUSA = seq(from=w_USA_opt[2]-0.25, to=w_USA_opt[2]+0.25, by=.01), ML = NA) 
+for (ii in 1:dim(tmp1)[1]) { tmp1$ML[ii] <- -MLE(tmp1$wUSA[ii], y, x, weigths) }
+tmp2 <- 1+(tmp[tmp$LAB == "USA", "var"] - tmp[tmp$LAB == "KK", "var"]) / tmp[tmp$LAB == "KK", "var"]
+ggplot() +
+  geom_point(data=tmp1, aes(wUSA,ML, colour="ML(wUSA)")) +
+  geom_point(data=tmp1, aes(wUSA[which.max(tmp1$ML)],ML[which.max(tmp1$ML)], colour=paste0("opt. wUSA=", round(tmp1$wUSA[which.max(tmp1$ML)],3)))) +
+  geom_point(data=tmp1, aes(tmp2,-MLE(tmp2, y, x, weigths), colour=paste0("meas. wUSA=", round(tmp2,3)))) +
+  geom_vline(aes(xintercept = c(w_USA_opt[1], w_USA_opt[3]), colour=paste0(as.integer((1-ALPHA)*100), "% CI"))) +
+  labs(x="wUSA", y="ML", colour="") +
+  theme_TS()
+```
+
+
+
+<!--
+```{r, echo=FALSE, fig.cap="\\label{fig_9_1}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+y - x %*% beta_hat
+re_fitted <- x %*% beta_hat
+re_res <- dioxin$DIOX_log - re_fitted
+
+res_ana_plot(re_res, re_fitted)
+```
+-->
