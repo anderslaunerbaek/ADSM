@@ -155,8 +155,8 @@ Anova(M,type=3)
 
 ##################################################
 ## Collinearity and polynomial regression
-setwd("~/Kurser/kursus02424/2018/lectures/lect04")
-ozone.pollution<-read.table("../lect03/ozone.data.csv",header=T)
+setwd("~/DTU/Courses/ADSM/Lectures/lec4")
+ozone.pollution<-read.table("../lec3/ozone.data.csv",header=T)
 ## pdf("ozone.pdf",width=20/2.54,height=13/2.54)
 pairs(ozone.pollution, panel = panel.smooth, main = "Ozone data")
 ## dev.off()

@@ -1,16 +1,17 @@
 ---
-title: 'Advanced Dataanalysis and Statistical Modelling: Exercise 2'
+title: 'Advanced Dataanalysis and Statistical Modelling - Assignment 2'
 author: "Anders Launer Bæk (s160159)"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes: 
     - \usepackage{graphicx}
+    - \usepackage{hyperref}
+    - \usepackage{amsmath}
 output:
   pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 rm(list=ls())
-
 knitr::opts_chunk$set(echo=FALSE, 
                       include=TRUE,
                       warning=FALSE,
@@ -22,79 +23,507 @@ knitr::opts_chunk$set(echo=FALSE,
                       dev='pdf', 
                       cache=TRUE, fig.pos="th!")
 
-kable_format <- list(small.mark=",",
-                     big.mark=',',
-                     decimal.mark='.',
-                     nsmall=3,
-                     digits=3,
-                     scientific=FALSE,
-                     big.interval=3L)
+
 
 library(ggplot2)
-library(akima)
 library(dplyr)
-theme_TS <- function(base_size=9, base_family="", face="plain"){
-  theme_bw(base_size=base_size, base_family=base_family) %+replace%
-    theme(panel.background=element_blank(), 
-          panel.border=element_blank(),
-          panel.grid=element_blank(),
-          axis.text=element_text(size=base_size, face=face, family=base_family),
-          axis.title=element_text(size=base_size, face=face, family=base_family),
-          legend.text=element_text(size=base_size, face=face, family=base_family))
-}
-
-# Multiple plot function
-#
-# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
-# - cols:   Number of columns in layout
-# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
-#
-# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
-# then plot 1 will go in the upper left, 2 will go in the upper right, and
-# 3 will go all the way across the bottom.
-#
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-
-  numPlots=length(plots)
-
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol=cols, nrow=ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout=grid.layout(nrow(layout), ncol(layout))))
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind=TRUE))
-
-      print(plots[[i]], vp=viewport(layout.pos.row=matchidx$row,
-                                      layout.pos.col=matchidx$col))
-    }
-  }
-}
-
-
+source('~/DTU/Courses/ADSM/Projects/my_functions.R')
 ```
-Sparring partners:
-\begin{itemize}
-\item Anja Liljedahl Christensen (s162876)
-\item Marie Mørk (s112770)
-\end{itemize}
 
-# Question 1
+```{r include=FALSE}
+# get data 
+dat <- read.table(file ="~/DTU/Courses/ADSM/Projects/pro_2/data/earinfect.txt", sep = " ", header = T)
+n <- dim(dat)[1]
+p <- dim(dat)[2]
+```
+
+## Q 1.1
+The data set contains `r dim(dat)[1]` observations and `r dim(dat)[2]` variables. 
+
+The response variable has the following property:
+
+* `infections` is a non-negative discrete numerical response variable which has no upper limit. 
+
+There are five other explanatory variables with the following properties:
+
+* `swimmer` is a nominal categorical variable with two levels: `r paste(levels(dat$swimmer), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The variable describes how often the swimmer takes a swim.
+* `location` is a nominal categorical variable with two levels: `r paste(levels(dat$location), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The levels of the variable describes the location of the swim.
+* `age` is an ordinal categorical variable with three levels: `r paste(levels(dat$age), collapse = ", ")`. The variable describes the age interval of a given group.
+* `persons` is a non-negative discrete numerical variable with a of `min=``r min(dat$persons)`, `mean=``r round(mean(dat$persons),3)`, `median=``r median(dat$persons)` and `max=``r max(dat$persons)`.
+The variable the number of persons in the given group.
+
+ 
+The `infections` variable is assumed to follow a Poisson distribution.
+
+
+## Q 1.2
+By recalling the underlying assumptions of a linear model: 
+
+* Their must be a linear and additive relation between the dependent variable and the explanatory variables and the effects of multiple explanatory variables are additive. 
+* The properties of the linear model fits the Gaussian family. The residuals must be normal distributed. 
+
+The response variable must follow a Poisson distribution, which does not respects the underlying assumptions for the linear model and furthermore the model want to estimate the rate of having the ear infection.
+
+## Q 1.3
+<!--
+https://stats.stackexchange.com/questions/66791/where-does-the-offset-go-in-poisson-negative-binomial-regression
+-->
+
+It is possible to compare the rate of ear infections among the group of swimmers with different sizes by introducing an offset in model\footnote{Recalling lecture 7 and Example 4.7, Introduction to General and Generalized Linear Models by Madsen \& Thyregod}.
+
+The underlying assumption is that the number of ear infections within each group is proportionally correlated to the size of the given group.
+
+It has been chosen to apply `log` as the link function: `log(persons)` and hereby use the offset (`offset(log(persons))`) as a function of the size of the group. This forces the response variable (the infection rate) `infections/log(persons)` to having a log-normal distribution. 
+
+## Q 1.4
+We want to find the linear proportion of ear infections among the swimmers. This relation needs to be described as a linear model with a appropriate link function in the generalized additive model. The canonical link function for the Poisson distribution is $g(u) = log(u)$. The transformed linear model model is given in eq. (\ref{eq_1_1}).
+
+\begin{equation}
+Y_{ infections_{ log } }=X \beta +\epsilon 
+\label{eq_1_1}
+\end{equation}
+
+where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+
+\begin{equation*}
+\resizebox{\linewidth}{!}{$X = \begin{bmatrix} persons_{log} & swimmer & location & age & sex & swimmer \cdot location & swimmer \cdot age & \dots & age \cdot sex \\ \vdots & \vdots \end{bmatrix}$}
+\end{equation*}
+
+The rate of ear infections can be found by the inverse transformation of the intercept $\beta_1$ from model (\ref{eq_1_1}). The rate of ear infections is: $\gamma=exp\left(\beta_1\right)$.
+
+It has been chosen to apply the `glm()` function from the R-`stats` package. The initial fit of the full model is given in the chunk below.
+
+```{r, echo=TRUE}
+fit_1_1 <- glm(formula = infections ~ offset(log(persons)) + swimmer + location + age + sex + swimmer:location + swimmer:age + swimmer:sex + location:age + location:sex + age:sex, family = poisson, data = dat)
+```
+
+The null model, which assumes that all data points can be described one parameter, an overall intercept. Its null deviance describes how well the target values are predicted by the estimated intercept.
+The residual deviance describes how well the target values are predicted by the explanatory variables in the model.
+
+The goodness of the fit is a special case of the likelihood ratio test. The following chunk below shows the p-value. `pchisq()` gives by default the proportion left of the distribution, hence the "`1-`" to get the correct proportion.
+```{r, echo=TRUE}
+1-pchisq(fit_1_1$null.deviance-fit_1_1$deviance, df=fit_1_1$df.null-fit_1_1$df.residual)
+```
+
+The above chi square test is testing null hypothesis which is: 
+
+* The null model and the model are identically. 
+
+The p-value is not significant and hereby it is possible to reject the null hypothesis. The model gives a better adequate fit for the data than the null model.
+
+An associated p-value close to `1` leads to a sufficient model and a small residual deviance. But this goodness of fits does not validate the whether the estimated parameters in the model is significant. Table \ref{tab_1_1_init_full_mod} reports the summary of the initial fit and only the intercept of the estimated parameters is significant.
+```{r}
+knitr::kable(summary(fit_1_1)$coefficients, caption = "\\label{tab_1_1_init_full_mod}Summary of the initial full model.")
+```
+
+\newpage
+## Q 1.5
+It has been chosen to to use the `drop1(fit, test = "Chisq")` function in order to do backwards elimination and hereby reduce the model (\ref{eq_1_1}). 
+In each elimination stage the previous model and the updated model are compared with the anova table: `anova(fit_old, fit_new, test="Chisq")`. A p-value below the 5\% confidence level will accept the null hypothesis and the the performance of the old and new model are significant equally.
+
+The process for each iteration of the backwards elimination is listed below:
+
+1. Find the parameter/interaction with the highest `Pr(>Chi)` in the `drop1()`-table.
+1. Exclude this parameter/interaction. Report summary table and anova table.
+1. Repeat step 1 and step 2 until the estimate of all the parameters are below the $5\%$ confidence value.
+
+<!--
+```{r}
+
+fit_1_final_1 <- update(fit_1_1,.~. -swimmer:sex -swimmer:age -location:age -age:sex -age -swimmer:location -swimmer -location:sex)
+drop1(fit_1_final_1, test = "Chisq")
+
+fit_1_final_2 <- update(fit_1_final_1,.~. -sex)
+drop1(fit_1_final_2, test = "Chisq")
+
+an_test <- anova(fit_1_1, fit_1_final_2, test="Chisq")[2, c("Resid. Dev", "Resid. Df")]
+fit_1_final_2_sum <- summary(fit_1_final_2)[c("deviance", "df.residual")]
+1-pchisq(an_test$`Resid. Dev`, df=an_test$`Resid. Df`)
+```
+-->
+
+The backwards elimination process includes nine iterations and the final model is given in (\ref{eq_2_2}).
+
+* 1. iteration: Exclusion of `swimmer:sex`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_1, test = "Chisq")
+fit_1_2 <- update(fit_1_1,.~. -swimmer:sex)
+# test
+an_test <- anova(fit_1_1, fit_1_2, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_2$deviance-fit_1_1$deviance, df=fit_1_2$df.residual - fit_1_1$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_1, test = "Chisq"), caption = "\\label{tab_1_1}")
+knitr::kable(an_test, caption = "\\label{tab_1_1_2}")
+```
+
+* 2. iteration: Exclusion of `swimmer:age`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_2, test = "Chisq")
+fit_1_3 <- update(fit_1_2,.~. -swimmer:age)
+# test
+an_test <- anova(fit_1_2, fit_1_3, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_3$deviance-fit_1_2$deviance, df=fit_1_3$df.residual - fit_1_2$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_2, test = "Chisq"), caption = "\\label{tab_1_2}")
+knitr::kable(an_test, caption = "\\label{tab_1_2_2}")
+```
+     
+* 3. iteration: Exclusion of `location:age`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_3, test = "Chisq")
+fit_1_4 <- update(fit_1_3,.~. -location:age)
+# test
+an_test <- anova(fit_1_3, fit_1_4, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_4$deviance-fit_1_3$deviance, df=fit_1_4$df.residual - fit_1_3$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_3, test = "Chisq"), caption = "\\label{tab_1_3}")
+knitr::kable(an_test, caption = "\\label{tab_1_3_2}")
+```
+    
+* 4. iteration: Exclusion of `age:sex`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_4, test = "Chisq")
+fit_1_5 <- update(fit_1_4,.~. -age:sex)
+# test
+an_test <- anova(fit_1_4, fit_1_5, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_5$deviance-fit_1_4$deviance, df=fit_1_5$df.residual - fit_1_4$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_4, test = "Chisq"), caption = "\\label{tab_1_4}")
+knitr::kable(an_test, caption = "\\label{tab_1_4_2}")
+```
+
+* 5. iteration: Exclusion of `age`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_5, test = "Chisq")
+fit_1_6 <- update(fit_1_5,.~. -age)
+# test
+an_test <- anova(fit_1_5, fit_1_6, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_6$deviance-fit_1_5$deviance, df=fit_1_6$df.residual - fit_1_5$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_5, test = "Chisq"), caption = "\\label{tab_1_5}")
+knitr::kable(an_test, caption = "\\label{tab_1_5_2}")
+```
+    
+* 6. iteration: Exclusion of `swimmer:location`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_6, test = "Chisq")
+fit_1_7 <- update(fit_1_6,.~. -swimmer:location)
+# test
+an_test <- anova(fit_1_6, fit_1_7, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_7$deviance-fit_1_6$deviance, df=fit_1_7$df.residual - fit_1_6$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_6, test = "Chisq"), caption = "\\label{tab_1_6}")
+knitr::kable(an_test, caption = "\\label{tab_1_6_2}")
+```
+    
+* 7. iteration: Exclusion of `swimmer`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_7, test = "Chisq")
+fit_1_8 <- update(fit_1_7,.~. -swimmer)
+# test
+an_test <- anova(fit_1_7, fit_1_8, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_8$deviance-fit_1_7$deviance, df=fit_1_8$df.residual - fit_1_7$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_7, test = "Chisq"), caption = "\\label{tab_1_7}")
+knitr::kable(an_test, caption = "\\label{tab_1_7_2}")
+```
+
+* 8. iteration: Exclusion of `location:sex`
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_8, test = "Chisq")
+fit_1_9 <- update(fit_1_8,.~. -location:sex)
+# test
+an_test <- anova(fit_1_8, fit_1_9, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_9$deviance-fit_1_8$deviance, df=fit_1_9$df.residual - fit_1_8$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_8, test = "Chisq"), caption = "\\label{tab_1_8}")
+knitr::kable(an_test, caption = "\\label{tab_1_8_2}")
+```
+
+* 9. iteration: Exclusion of `sex`
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_9, test = "Chisq")
+fit_1_final <- update(fit_1_9,.~. -sex)
+# test
+an_test <- anova(fit_1_9, fit_1_final, test="Chisq")
+# godness of fit
+1-pchisq(fit_1_final$deviance-fit_1_9$deviance, df=fit_1_final$df.residual - fit_1_9$df.residual)
+```
+
+```{r}
+knitr::kable(drop1(fit_1_9, test = "Chisq"), caption = "\\label{tab_1_9}")
+knitr::kable(an_test, caption = "\\label{tab_1_9_2}")
+```
+
+The reduced model is achieved and presented in (\ref{eq_2_2}).
+
+
+\newpage
+## Q 1.6
+
+The estimated parameters of the best reduced model is reported in table \ref{tab_1_6_1} and in the model formula (\ref{eq_2_2}).
+```{r}
+knitr::kable(summary(fit_1_final)$coefficients, 
+             caption = "\\label{tab_1_6_1}The estimated coefficents of the final model.")
+```
+
+\begin{equation}
+%\resizebox{\linewidth}{!}{$
+Y_{ infections_{ log } } =\begin{bmatrix} persons_{log} & `r paste0(names(coef(fit_1_final))[-1], collapse = "&")` `r paste0("\\\\ ", paste0("\\",rep("vdots",fit_1_final["rank"]), collapse = "&"))`   \end{bmatrix} \begin{bmatrix}  `r paste0(round(coef(fit_1_final),4), collapse = "\\\\")`   \end{bmatrix} +\epsilon
+%$}
+\label{eq_2_2}
+\end{equation}
+
+The odds ratio can be conducted from the parameter estimate given in table \ref{tab_1_6_2O} and in model (\ref{eq_2_2}). By using the inverse log-transformation 
+
+It is possible to do the inverse log-transformation in order to obtain the ratio of having the ear infections.
+
+```{r}
+# Odds ratio
+knitr::kable(t(exp(coef(fit_1_final) + sqrt(diag(vcov(fit_1_final))) %o% c(CI_low=-1, mean=0, CI_up=1) * qt(0.975, fit_1_final$df.residual))[2,]), 
+             caption = "\\label{tab_1_6_2O}Odds ratio and its 95% confidence intervals.")
+```
+
+The change of having the ear infection is $\gamma=exp(\beta_{locationNonBeach})=`r exp(coef(fit_1_final))[2]`$ times higher if the swim takes place in the "NonBeach" areas where the gender, age and frequency of the swimmer does not have a significantly effect of having the ear infection. 
+
+The goodness of the fit, compared to its null model, do have a significantly p-value. This tells that the reduced model does not predict the target values sufficiently better than its null model. See the chunk below:
+```{r, echo=TRUE}
+1-pchisq(fit_1_final$null.deviance-fit_1_final$deviance, df=fit_1_final$df.null-fit_1_final$df.residual)
+```
+
+\newpage
+## Q 2.P1.1
+
+```{r include=FALSE}
+rm(list=ls())
+source('~/DTU/Courses/ADSM/Projects/my_functions.R')
+# get data
+dat <- read.table(file ="~/DTU/Courses/ADSM/Projects/pro_2/data/ozone.txt", sep = " ", header = T)
+n <- dim(dat)[1]
+p <- dim(dat)[2]
+```
+
+The data set contains `r n` observations and `r p` variables.
+
+The repsonds variable has the following properties:
+
+  A data frame containing 330 observations on the following variables.
+
+Ozone:
+  Ozone conc., ppm, at Sandbug AFB.
+Temp:
+  Temperature F. (max?).
+InvHt:
+  Inversion base height, feet
+Pres:
+  Daggett pressure gradient (mm Hg)
+Vis:
+  Visibility (miles)
+Hgt:
+  Vandenburg 500 millibar height (m)
+Hum:
+  Humidity, percent
+InvTmp:
+  Inversion base temperature, degrees F.
+Wind:
+  Wind speed, mph
+day	Calendar day, between 1 and 366.
+
+
+
+The response variable has the following property:
+
+* `infections` is a non-negative discrete numerical response variable which has no upper limit. 
+
+There are five other explanatory variables with the following properties:
+
+* `swimmer` is a nominal categorical variable with two levels: `r paste(levels(dat$swimmer), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The variable describes how often the swimmer takes a swim.
+* `location` is a nominal categorical variable with two levels: `r paste(levels(dat$location), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The levels of the variable describes the location of the swim.
+* `age` is an ordinal categorical variable with three levels: `r paste(levels(dat$age), collapse = ", ")`. The variable describes the age interval of a given group.
+* `persons` is a non-negative discrete numerical variable with a of `min=``r min(dat$persons)`, `mean=``r round(mean(dat$persons),3)`, `median=``r median(dat$persons)` and `max=``r max(dat$persons)`.
+The variable the number of persons in the given group.
+
+
+
+
+CORRELATION
+
+```{r}
+pairs(dat, panel = panel.smooth, main = "Ozone data")
+```
+
+```{r}
+df_plot <- dat %>% select(-Ozone) %>% cor(.) %>% reshape2::melt(.)
+ggplot(df_plot, aes(x=Var1, y=Var2, fill=value)) +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1,1), space = "Lab", name="correlation") +
+
+  geom_tile(color = "white") +
+  scale_x_discrete(limits = rev(levels(df_plot$Var2))) +
+  labs(x = "", y = "", color = "") +
+  annotate(x=df_plot$Var1, y=df_plot$Var2,
+           label=paste(round(df_plot$value,2)),
+           geom="text", size=5) +
+  theme_TS()
+n_head <- 10
+```
+
+```{r}
+df_plot %>%
+  mutate(abs_value = abs(value)) %>%
+  select(Var1, Var2, abs_value) %>%
+  filter(abs_value != 1.0) %>%
+  arrange(desc(abs_value)) %>%
+  distinct(abs_value,.keep_all = T) %>%
+  head(n_head)
+```
+
+## Q 2.P1.2
+
+The notation of the additive model is given in (\ref{eq_2_1}).
+
+\begin{equation}
+Y_{ DIOX_{ log } }=X \beta +\epsilon
+\label{eq_2_1}
+\end{equation}
+
+where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+
+  \begin{equation*}
+X = \begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & \cdots & PLANT & TIME & LAB \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
+\end{equation*}
+
+only consider additive and linear effects -- > does it include interactions?
+
+
+  ```{r}
+fit_2_1 <- lm(Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind +
+                Temp:InvHt + Temp:Pres + Temp:Vis + Temp:Hgt + Temp:Hum + Temp:InvTmp + Temp:Wind +
+                InvHt:Pres + InvHt:Vis + InvHt:Hgt + InvHt:Hum + InvHt:InvTmp + InvHt:Wind +
+                Pres:Vis + Pres:Hgt + Pres:Hum + Pres:InvTmp + Pres:Wind +
+                Vis:Hgt + Vis:Hum + Vis:InvTmp + Vis:Wind +
+                Hgt:Hum + Hgt:InvTmp + Hgt:Wind +
+                Hum:InvTmp + Hum:Wind +
+                InvTmp:Wind, data = dat)
+
+summary(fit_2_1)
+```
+
+Residual analysis
+```{r, fig.cap="\\label{fig_2_1}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+res_ana_plot(res = fit_2_1$residuals, fit = fit_2_1$fitted.values)
+```
+
+* ad
+* ad
+
+## Q 2.P1.3
+
+From figure \ref{fig_2_1} it is possible to see...
+
+```{r}
+fit_2_2 <- lm(log(Ozone) ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind +
+                Temp:InvHt + Temp:Pres + Temp:Vis + Temp:Hgt + Temp:Hum + Temp:InvTmp + Temp:Wind +
+                InvHt:Pres + InvHt:Vis + InvHt:Hgt + InvHt:Hum + InvHt:InvTmp + InvHt:Wind +
+                Pres:Vis + Pres:Hgt + Pres:Hum + Pres:InvTmp + Pres:Wind +
+                Vis:Hgt + Vis:Hum + Vis:InvTmp + Vis:Wind +
+                Hgt:Hum + Hgt:InvTmp + Hgt:Wind +
+                Hum:InvTmp + Hum:Wind +
+                InvTmp:Wind, data = dat)
+summary(fit_2_2)
+```
+
+Residual analysis
+```{r, fig.cap="\\label{fig_2_2}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+res_ana_plot(res = fit_2_2$residuals, fit = fit_2_2$fitted.values)
+```
+
+
+## Q 2.P1.4
+Fit at least two different (sensible) generalized linear models to the data (you do not have report residual plots of all the models here), and compare these model by a quantitative numbers (you can play around with the distribution assumption and the link function).
+
+
+
+## Q 2.P1.5
+Compare the model under question 3 and the model chosen from question 4, which one would you prefer (if you choose a quantitative measure you will need to take the transfor- mation into account)?
+
+## Q 2.P1.6
+For the chosen generalized linear model write down explicitly the diagonal elements of the weight matrix (W) as a function of $\mu_i$, check your calculation by comparing the dispersion matrix of the parameters from the R function (summary(fit)$cov.scaled) with your own calculation.
+
+
+```{r}
+summary(fit_2_2)$cov.scaled
+```
+
+
+## Q 2.P2.1
+
+Devellop the model you have chosen under the previous part, you might consider both higher order polynomials and interaction terms.
+
+```{r}
+fit_2_2 <- lm(log(Ozone) ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind, data = dat)
+summary(fit_2_2)
+```
+
+Residual analysis
+```{r, fig.cap="\\label{fig_2_2}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+res_ana_plot(res = fit_2_2$residuals, fit = fit_2_2$fitted.values)
+```
+
+
+
+## Q 2.P2.2
+
+Present the final model.
+
+\begin{equation}
+Y_{ DIOX_{ log } }=X \beta +\epsilon
+\label{eq_1_1}
+\end{equation}
+
+where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+
+  \begin{equation*}
+X = \begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & \cdots & PLANT & TIME & LAB \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
+\end{equation*}

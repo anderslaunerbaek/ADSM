@@ -634,6 +634,8 @@ load_test_1 <- t.test(dioxin %>% filter(LOAD == "L") %>% select(DIOX_log),
                       dioxin %>% filter(LOAD == "N") %>% select(DIOX_log))
 load_test_2 <- t.test(dioxin %>% filter(LOAD == "L") %>% select(DIOX_log),
                       dioxin %>% filter(LOAD == "H") %>% select(DIOX_log))
+load_test_3 <- t.test(dioxin %>% filter(LOAD == "N") %>% select(DIOX_log),
+                      dioxin %>% filter(LOAD == "H") %>% select(DIOX_log))
 ```
 
 * `LOAD` from `H` to `L`
@@ -652,6 +654,14 @@ There is a significant difference in the mean values of `N` ($\mu=`r load_test_s
 
 The following test statistics have been conducted; $t(`r load_test_1["parameter"]`)=`r load_test_1["statistic"]`$, $p=`r load_test_1["p.value"]`$.
 
+* `LOAD` from `H` to `N`
+    * $H_0:$ `H` $=$ `N`
+    * $H_1:$ `H` $\neq$ `N`
+
+There is not a significant difference in the mean values of `H` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "H","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "H","SD"]`$) and `N` ($\mu=`r load_test_stat[load_test_stat["LOAD"] == "N","M"]`$, $\sigma=`r load_test_stat[load_test_stat["LOAD"] == "N","SD"]`$).
+
+The following test statistics have been conducted; $t(`r load_test_3["parameter"]`)=`r load_test_3["statistic"]`$, $p=`r load_test_3["p.value"]`$.
+
 
 ### Minimizing the value of oxygen surplus (`OXYGEN`)
 ```{r}
@@ -665,6 +675,8 @@ oxygen_test_1 <- t.test(dioxin %>% filter(OXYGEN == "L") %>% select(DIOX_log),
                         dioxin %>% filter(OXYGEN == "N") %>% select(DIOX_log))
 oxygen_test_2 <- t.test(dioxin %>% filter(OXYGEN == "L") %>% select(DIOX_log),
                         dioxin %>% filter(OXYGEN == "H") %>% select(DIOX_log))
+oxygen_test_3 <- t.test(dioxin %>% filter(OXYGEN == "H") %>% select(DIOX_log),
+                        dioxin %>% filter(OXYGEN == "N") %>% select(DIOX_log))
 ```
 
 * `OXYGEN` from `H` to `L`
@@ -683,15 +695,28 @@ There is not a significant difference in the mean values of `N` ($\mu=`r oxygen_
 
 The following test statistics have been conducted; $t(`r oxygen_test_1["parameter"]`)=`r oxygen_test_1["statistic"]`$, $p=`r oxygen_test_1["p.value"]`$.
 
+* `OXYGEN` from `H` to `N`
+    * $H_0:$ `H` $=$ `N`
+    * $H_1:$ `H` $\neq$ `N`
+
+There is not a significant difference in the mean values of `H` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "H","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "H","SD"]`$) and `N` ($\mu=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "N","M"]`$, $\sigma=`r oxygen_test_stat[oxygen_test_stat["OXYGEN"] == "N","SD"]`$).
+
+The following test statistics have been conducted; $t(`r oxygen_test_3["parameter"]`)=`r oxygen_test_3["statistic"]`$, $p=`r oxygen_test_3["p.value"]`$.
+
 ### Evaluation of the suggestions
 According to the test setups it is possible to:
 
-* Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `H` to `L`.
-* Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `N` to `L`
-* Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `H` to `L`.
-* Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `N` to `L`.
+* `LOAD`
+    * Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `H` to `L`.
+    * Reject the $H_0$, which says that there is a significant effect of changing `LOAD` from `N` to `L`
+    * Accept the $H_0$, which says that there is not a significant effect of changing `LOAD` from `H` to `N`
 
-From the concudted test the suggestion is to decreace the `LOAD` in the setup. 
+* `OXYGEN`
+    * Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `H` to `L`.
+    * Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `N` to `L`.
+    * Accept the $H_0$, which says that there is not a significant effect of changing `OXYGEN` from `H` to `N`.
+
+From the concudted test the suggestion is to decreace the `LOAD` variable to `L` in the setup. 
 
 \newpage
 ## Q6
