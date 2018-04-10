@@ -1,3 +1,10 @@
+RMSE_func <- function(y, y_hat) { sqrt(mean((y-y_hat)^2)) / sqrt(mean((y-mean(y))^2)) }
+MSE_func <- function(y, y_hat) { mean((y-y_hat)^2) }
+R2_func <- function(y, y_hat){ 1 - sum((y - y_hat)^2) / sum((y - mean(y_hat))^2) }
+
+R2adj_func <- function(y, y_hat, k){ 1 - (((1 - R2_func(y, y_hat))*(length(y_hat) - 1)) / (length(y_hat) - k - 1)) }
+
+
 
 kable_format <- list(small.mark=",",
                      big.mark=',',
@@ -98,7 +105,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   }
 }
 
-res_ana_plot <- function(res,fit) {
+res_ana_plot <- function(res,fit, x_labs = "(log) Fitted values") {
   fit_df <- data.frame(t = 1:length(res),
                        res = res,
                        res_sd = (res-mean(res)) / sd(res),
@@ -118,13 +125,13 @@ res_ana_plot <- function(res,fit) {
               geom_abline(intercept = 0, slope = 0,color = "grey50",linetype="dashed") +
               geom_point(aes(fit,res)) +
               geom_smooth(aes(fit,res), fill=NA, method = "loess", span = 1) +
-              labs(x="(log) Fitted values", y="Residuals") +
+              labs(x=x_labs, y="Residuals") +
               theme_TS(),
             # scale location
             ggplot(fit_df) +
               geom_point(aes(fit,res_sd_sqrt)) +
               geom_smooth(aes(fit,res_sd_sqrt), fill=NA, method = "loess", span = 1) +
-              labs(x="(log) Fitted values", y="sqrt(|Std. residuals|)") +
+              labs(x=x_labs, y="sqrt(|Std. residuals|)") +
               theme_TS(),
             # qq
             qqplot.data(fit_df$res_sd), cols=2)

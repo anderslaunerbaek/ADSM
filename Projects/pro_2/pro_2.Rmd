@@ -38,113 +38,96 @@ p <- dim(dat)[2]
 ```
 
 ## Q 1.1
-The data set contains `r dim(dat)[1]` observations and `r dim(dat)[2]` variables. 
+The data set contains `r dim(dat)[1]` grouped observations with a total of `r dim(dat)[2]` variables. The response variable has the following property:
 
-The response variable has the following property:
+* `infections` is a non-negative discrete response variable which has no upper limit. 
 
-* `infections` is a non-negative discrete numerical response variable which has no upper limit. 
-
-There are five other explanatory variables with the following properties:
+There are five explanatory variables with the following properties:
 
 * `swimmer` is a nominal categorical variable with two levels: `r paste(levels(dat$swimmer), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The variable describes how often the swimmer takes a swim.
-* `location` is a nominal categorical variable with two levels: `r paste(levels(dat$location), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The levels of the variable describes the location of the swim.
+* `location` is a nominal categorical variable with two levels: `r paste(levels(dat$location), collapse = ", ")`. The variable could easily again be described as a logical variable when it is only having two levels. The levels of the variable describes the location of the swim.
 * `age` is an ordinal categorical variable with three levels: `r paste(levels(dat$age), collapse = ", ")`. The variable describes the age interval of a given group.
-* `persons` is a non-negative discrete numerical variable with a of `min=``r min(dat$persons)`, `mean=``r round(mean(dat$persons),3)`, `median=``r median(dat$persons)` and `max=``r max(dat$persons)`.
-The variable the number of persons in the given group.
+* `persons` is a non-negative discrete variable with the following statistics: `min=``r min(dat$persons)`, `mean=``r round(mean(dat$persons),3)`, `median=``r median(dat$persons)` and `max=``r max(dat$persons)`. The variable describes the number of persons in the given group. It is required to model the size of the groups appropriately in the model due to the large range in group sizes.
 
- 
-The `infections` variable is assumed to follow a Poisson distribution.
-
+The response variable `infections` is assumed to follow a Poisson distribution.
 
 ## Q 1.2
-By recalling the underlying assumptions of a linear model: 
+Recalling the underlying assumptions of a linear model: 
 
-* Their must be a linear and additive relation between the dependent variable and the explanatory variables and the effects of multiple explanatory variables are additive. 
+* Their must be a linear and additive relation between the dependent variable and the explanatory variables.
 * The properties of the linear model fits the Gaussian family. The residuals must be normal distributed. 
 
-The response variable must follow a Poisson distribution, which does not respects the underlying assumptions for the linear model and furthermore the model want to estimate the rate of having the ear infection.
+The response variable must follow a Poisson distribution, which does not respect the underlying assumptions of the linear model. Furthermore the model needs to estimate the rate of having the ear infection w.r.t. the different group sizes.
+
+The linear model is inappropriate because the underlying assumptions of the linear model does not follow the latter mentioned properties.
 
 ## Q 1.3
 <!--
 https://stats.stackexchange.com/questions/66791/where-does-the-offset-go-in-poisson-negative-binomial-regression
 -->
 
-It is possible to compare the rate of ear infections among the group of swimmers with different sizes by introducing an offset in model\footnote{Recalling lecture 7 and Example 4.7, Introduction to General and Generalized Linear Models by Madsen \& Thyregod}.
+The number of ear infections within each group is proportionally correlated to the size of the given group. Hereby it is possible to compare the rate of ear infections among the group of swimmers with different sizes by introducing an offset in the model\footnote{Recalling lecture 7 and Example 4.7, Introduction to General and Generalized Linear Models by Madsen \& Thyregod.}.
 
-The underlying assumption is that the number of ear infections within each group is proportionally correlated to the size of the given group.
-
-It has been chosen to apply `log` as the link function: `log(persons)` and hereby use the offset (`offset(log(persons))`) as a function of the size of the group. This forces the response variable (the infection rate) `infections/log(persons)` to having a log-normal distribution. 
+It has been chosen to apply `log` as the link function: `log(persons)` and hereby use the offset (`offset(log(persons))`) as a function of the size of the group. This forces the response variable (the infection rate) `infections/log(persons)` to have a log-normal distribution. 
 
 ## Q 1.4
-We want to find the linear proportion of ear infections among the swimmers. This relation needs to be described as a linear model with a appropriate link function in the generalized additive model. The canonical link function for the Poisson distribution is $g(u) = log(u)$. The transformed linear model model is given in eq. (\ref{eq_1_1}).
+
+The relation of the proportion of ear infections among the swimmers needs to be described as a generalized  linear model with an appropriate link function $g(\cdot)$. The canonical link function for the Poisson distribution is $g(u) = log(u)$. The linear predictor is given in eq. (\ref{eq_1_1}).
 
 \begin{equation}
-Y_{ infections_{ log } }=X \beta +\epsilon 
+\eta = X \cdot \beta +\epsilon 
 \label{eq_1_1}
 \end{equation}
 
-where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+where $\beta$ are the parameters which need to be estimated and $X$ is the design matrix which is given below:
 
 \begin{equation*}
-\resizebox{\linewidth}{!}{$X = \begin{bmatrix} persons_{log} & swimmer & location & age & sex & swimmer \cdot location & swimmer \cdot age & \dots & age \cdot sex \\ \vdots & \vdots \end{bmatrix}$}
+\resizebox{\linewidth}{!}{$X = \begin{bmatrix} persons_{log} & swimmer & location & age & sex & swimmer \cdot location & swimmer \cdot age & \dots & age \cdot sex \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots \end{bmatrix}$}
 \end{equation*}
 
 The rate of ear infections can be found by the inverse transformation of the intercept $\beta_1$ from model (\ref{eq_1_1}). The rate of ear infections is: $\gamma=exp\left(\beta_1\right)$.
 
-It has been chosen to apply the `glm()` function from the R-`stats` package. The initial fit of the full model is given in the chunk below.
+It has been chosen to apply the `glm()` function from the R-`stats` package. The code of the initial fit for the full model is given in the chunk below:
 
 ```{r, echo=TRUE}
 fit_1_1 <- glm(formula = infections ~ offset(log(persons)) + swimmer + location + age + sex + swimmer:location + swimmer:age + swimmer:sex + location:age + location:sex + age:sex, family = poisson, data = dat)
 ```
 
-The null model, which assumes that all data points can be described one parameter, an overall intercept. Its null deviance describes how well the target values are predicted by the estimated intercept.
-The residual deviance describes how well the target values are predicted by the explanatory variables in the model.
+The null model assumes that all data points can be described by the intercept. Its null deviance describes how well the target values are predicted by using only the estimated intercept.
+The residual deviance describes how well the target values are predicted by using all the explanatory variables in the model.
 
-The goodness of the fit is a special case of the likelihood ratio test. The following chunk below shows the p-value. `pchisq()` gives by default the proportion left of the distribution, hence the "`1-`" to get the correct proportion.
+The goodness of the fit is a special case of the likelihood ratio test. The following chunk below shows the p-value. `pchisq()` gives the proportion by default left of the distribution, hence the "`1-`" to get the correct proportion.
 ```{r, echo=TRUE}
 1-pchisq(fit_1_1$null.deviance-fit_1_1$deviance, df=fit_1_1$df.null-fit_1_1$df.residual)
 ```
 
-The above chi square test is testing null hypothesis which is: 
+The above chi square test is testing the null hypothesis, which is: 
 
-* The null model and the model are identically. 
+* The null model and the model are not identically. 
 
 The p-value is not significant and hereby it is possible to reject the null hypothesis. The model gives a better adequate fit for the data than the null model.
 
-An associated p-value close to `1` leads to a sufficient model and a small residual deviance. But this goodness of fits does not validate the whether the estimated parameters in the model is significant. Table \ref{tab_1_1_init_full_mod} reports the summary of the initial fit and only the intercept of the estimated parameters is significant.
+An associated p-value close to `1` leads to a sufficient model and a small residual deviance. But this goodness of fits does not validate whether the estimated parameters in the model is significant. Table \ref{tab_1_1_init_full_mod} reports the summary of the initial fit and only the intercept of the estimated parameters is significant.
 ```{r}
 knitr::kable(summary(fit_1_1)$coefficients, caption = "\\label{tab_1_1_init_full_mod}Summary of the initial full model.")
 ```
 
 \newpage
 ## Q 1.5
-It has been chosen to to use the `drop1(fit, test = "Chisq")` function in order to do backwards elimination and hereby reduce the model (\ref{eq_1_1}). 
-In each elimination stage the previous model and the updated model are compared with the anova table: `anova(fit_old, fit_new, test="Chisq")`. A p-value below the 5\% confidence level will accept the null hypothesis and the the performance of the old and new model are significant equally.
+It has been chosen to use the `drop1(fit, test = "Chisq")`-function in order to do backwards elimination and hereby reduce the design matrix $X$ in model (\ref{eq_1_1}). 
+The `drop1()`-function reports the change to den model if s single term has been excluded. The model performs a selected statistical test to determine whether the model without the excluded term is significantly different. The term with the highest `Pr(>Chi)`-value will excluded.
+
+The previous model and the updated model are compared with the anova table: `anova(fit_old, fit_new, test="Chisq")` in each elimination stage. A p-value below the 5\% confidence level will accept the null hypothesis and the performances of the old and the new model are significantly equal and the simpler model will be chosen.
 
 The process for each iteration of the backwards elimination is listed below:
 
-1. Find the parameter/interaction with the highest `Pr(>Chi)` in the `drop1()`-table.
-1. Exclude this parameter/interaction. Report summary table and anova table.
-1. Repeat step 1 and step 2 until the estimate of all the parameters are below the $5\%$ confidence value.
-
-<!--
-```{r}
-
-fit_1_final_1 <- update(fit_1_1,.~. -swimmer:sex -swimmer:age -location:age -age:sex -age -swimmer:location -swimmer -location:sex)
-drop1(fit_1_final_1, test = "Chisq")
-
-fit_1_final_2 <- update(fit_1_final_1,.~. -sex)
-drop1(fit_1_final_2, test = "Chisq")
-
-an_test <- anova(fit_1_1, fit_1_final_2, test="Chisq")[2, c("Resid. Dev", "Resid. Df")]
-fit_1_final_2_sum <- summary(fit_1_final_2)[c("deviance", "df.residual")]
-1-pchisq(an_test$`Resid. Dev`, df=an_test$`Resid. Df`)
-```
--->
+1. Find the parameter/interaction term with the highest `Pr(>Chi)` in the `drop1()`-table. The highest `Pr(>Chi)`-value for each iteration is reported below the chunk together with the p-value for the goodness of fit.
+1. Exclude this parameter/interaction term. Report the goodness of fit, the summary table and the anova table of the previous model and the updated model.
+1. Repeat step 1 and step 2 until the estimates of all parameters are below the $5\%$ confidence value in the `drop1()`-table.
 
 The backwards elimination process includes nine iterations and the final model is given in (\ref{eq_2_2}).
 
-* 1. iteration: Exclusion of `swimmer:sex`
+* 1. iteration: Exclusion of `swimmer:sex` term
 
 ```{r, echo=TRUE}
 # update
@@ -153,7 +136,8 @@ fit_1_2 <- update(fit_1_1,.~. -swimmer:sex)
 # test
 an_test <- anova(fit_1_1, fit_1_2, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_2$deviance-fit_1_1$deviance, df=fit_1_2$df.residual - fit_1_1$df.residual)
+c(p_val = max(drop1(fit_1_1, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_2$deviance-fit_1_1$deviance, df=fit_1_2$df.residual - fit_1_1$df.residual))
 ```
 
 ```{r}
@@ -161,7 +145,7 @@ knitr::kable(drop1(fit_1_1, test = "Chisq"), caption = "\\label{tab_1_1}")
 knitr::kable(an_test, caption = "\\label{tab_1_1_2}")
 ```
 
-* 2. iteration: Exclusion of `swimmer:age`
+* 2. iteration: Exclusion of `swimmer:age` term
 
 ```{r, echo=TRUE}
 # update
@@ -170,7 +154,8 @@ fit_1_3 <- update(fit_1_2,.~. -swimmer:age)
 # test
 an_test <- anova(fit_1_2, fit_1_3, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_3$deviance-fit_1_2$deviance, df=fit_1_3$df.residual - fit_1_2$df.residual)
+c(p_val = max(drop1(fit_1_2, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_3$deviance-fit_1_2$deviance, df=fit_1_3$df.residual - fit_1_2$df.residual))
 ```
 
 ```{r}
@@ -178,7 +163,7 @@ knitr::kable(drop1(fit_1_2, test = "Chisq"), caption = "\\label{tab_1_2}")
 knitr::kable(an_test, caption = "\\label{tab_1_2_2}")
 ```
      
-* 3. iteration: Exclusion of `location:age`
+* 3. iteration: Exclusion of `location:age` term
 
 ```{r, echo=TRUE}
 # update
@@ -187,7 +172,8 @@ fit_1_4 <- update(fit_1_3,.~. -location:age)
 # test
 an_test <- anova(fit_1_3, fit_1_4, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_4$deviance-fit_1_3$deviance, df=fit_1_4$df.residual - fit_1_3$df.residual)
+c(p_val = max(drop1(fit_1_3, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_4$deviance-fit_1_3$deviance, df=fit_1_4$df.residual - fit_1_3$df.residual))
 ```
 
 ```{r}
@@ -195,7 +181,7 @@ knitr::kable(drop1(fit_1_3, test = "Chisq"), caption = "\\label{tab_1_3}")
 knitr::kable(an_test, caption = "\\label{tab_1_3_2}")
 ```
     
-* 4. iteration: Exclusion of `age:sex`
+* 4. iteration: Exclusion of `age:sex` term
 
 ```{r, echo=TRUE}
 # update
@@ -204,7 +190,8 @@ fit_1_5 <- update(fit_1_4,.~. -age:sex)
 # test
 an_test <- anova(fit_1_4, fit_1_5, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_5$deviance-fit_1_4$deviance, df=fit_1_5$df.residual - fit_1_4$df.residual)
+c(p_val = max(drop1(fit_1_4, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_5$deviance-fit_1_4$deviance, df=fit_1_5$df.residual - fit_1_4$df.residual))
 ```
 
 ```{r}
@@ -212,7 +199,7 @@ knitr::kable(drop1(fit_1_4, test = "Chisq"), caption = "\\label{tab_1_4}")
 knitr::kable(an_test, caption = "\\label{tab_1_4_2}")
 ```
 
-* 5. iteration: Exclusion of `age`
+* 5. iteration: Exclusion of `age` term
 
 ```{r, echo=TRUE}
 # update
@@ -221,7 +208,8 @@ fit_1_6 <- update(fit_1_5,.~. -age)
 # test
 an_test <- anova(fit_1_5, fit_1_6, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_6$deviance-fit_1_5$deviance, df=fit_1_6$df.residual - fit_1_5$df.residual)
+c(p_val = max(drop1(fit_1_5, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_6$deviance-fit_1_5$deviance, df=fit_1_6$df.residual - fit_1_5$df.residual))
 ```
 
 ```{r}
@@ -229,7 +217,7 @@ knitr::kable(drop1(fit_1_5, test = "Chisq"), caption = "\\label{tab_1_5}")
 knitr::kable(an_test, caption = "\\label{tab_1_5_2}")
 ```
     
-* 6. iteration: Exclusion of `swimmer:location`
+* 6. iteration: Exclusion of `swimmer:location` term
 
 ```{r, echo=TRUE}
 # update
@@ -238,7 +226,8 @@ fit_1_7 <- update(fit_1_6,.~. -swimmer:location)
 # test
 an_test <- anova(fit_1_6, fit_1_7, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_7$deviance-fit_1_6$deviance, df=fit_1_7$df.residual - fit_1_6$df.residual)
+c(p_val = max(drop1(fit_1_6, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_7$deviance-fit_1_6$deviance, df=fit_1_7$df.residual - fit_1_6$df.residual))
 ```
 
 ```{r}
@@ -246,7 +235,7 @@ knitr::kable(drop1(fit_1_6, test = "Chisq"), caption = "\\label{tab_1_6}")
 knitr::kable(an_test, caption = "\\label{tab_1_6_2}")
 ```
     
-* 7. iteration: Exclusion of `swimmer`
+* 7. iteration: Exclusion of `swimmer` term
 
 ```{r, echo=TRUE}
 # update
@@ -255,7 +244,8 @@ fit_1_8 <- update(fit_1_7,.~. -swimmer)
 # test
 an_test <- anova(fit_1_7, fit_1_8, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_8$deviance-fit_1_7$deviance, df=fit_1_8$df.residual - fit_1_7$df.residual)
+c(p_val = max(drop1(fit_1_7, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_8$deviance-fit_1_7$deviance, df=fit_1_8$df.residual - fit_1_7$df.residual))
 ```
 
 ```{r}
@@ -263,7 +253,7 @@ knitr::kable(drop1(fit_1_7, test = "Chisq"), caption = "\\label{tab_1_7}")
 knitr::kable(an_test, caption = "\\label{tab_1_7_2}")
 ```
 
-* 8. iteration: Exclusion of `location:sex`
+* 8. iteration: Exclusion of `location:sex` term
 ```{r, echo=TRUE}
 # update
 # drop1(fit_1_8, test = "Chisq")
@@ -271,7 +261,8 @@ fit_1_9 <- update(fit_1_8,.~. -location:sex)
 # test
 an_test <- anova(fit_1_8, fit_1_9, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_9$deviance-fit_1_8$deviance, df=fit_1_9$df.residual - fit_1_8$df.residual)
+c(p_val = max(drop1(fit_1_8, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_9$deviance-fit_1_8$deviance, df=fit_1_9$df.residual - fit_1_8$df.residual))
 ```
 
 ```{r}
@@ -279,7 +270,7 @@ knitr::kable(drop1(fit_1_8, test = "Chisq"), caption = "\\label{tab_1_8}")
 knitr::kable(an_test, caption = "\\label{tab_1_8_2}")
 ```
 
-* 9. iteration: Exclusion of `sex`
+* 9. iteration: Exclusion of `sex` term
 
 ```{r, echo=TRUE}
 # update
@@ -288,7 +279,8 @@ fit_1_final <- update(fit_1_9,.~. -sex)
 # test
 an_test <- anova(fit_1_9, fit_1_final, test="Chisq")
 # godness of fit
-1-pchisq(fit_1_final$deviance-fit_1_9$deviance, df=fit_1_final$df.residual - fit_1_9$df.residual)
+c(p_val = max(drop1(fit_1_9, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_final$deviance-fit_1_9$deviance, df=fit_1_final$df.residual - fit_1_9$df.residual))
 ```
 
 ```{r}
@@ -296,41 +288,73 @@ knitr::kable(drop1(fit_1_9, test = "Chisq"), caption = "\\label{tab_1_9}")
 knitr::kable(an_test, caption = "\\label{tab_1_9_2}")
 ```
 
-The reduced model is achieved and presented in (\ref{eq_2_2}).
 
+* 10. iteration: Done
+
+```{r, echo=TRUE}
+# update
+# drop1(fit_1_final, test = "Chisq")
+# test
+an_test <- anova(fit_1_final, test="Chisq")
+# godness of fit
+c(p_val = max(drop1(fit_1_final, test = "Chisq")$`Pr(>Chi)`, na.rm = T),
+goodness_of_fit = 1-pchisq(fit_1_final$null.deviance -fit_1_final$deviance, df=fit_1_final$df.null - fit_1_final$df.residual))
+```
+
+```{r}
+knitr::kable(drop1(fit_1_final, test = "Chisq"), caption = "\\label{tab_1_10}")
+```
+
+The reduced model (`fit_1_final`) does not perform significantly better compared to its null-model. According to the goodness of fit it is suggested to chose the null-model which is simpler. But the `location` term in reduced model has significant estimate and it might make sense to include the term due to the microbiological properties of the two locations. 
+
+The reduced model is achieved and presented in eq. (\ref{eq_2_2}).
 
 \newpage
 ## Q 1.6
 
-The estimated parameters of the best reduced model is reported in table \ref{tab_1_6_1} and in the model formula (\ref{eq_2_2}).
+The estimated parameters of the best reduced model is reported in table \ref{tab_1_6_1} and linear predictor is given in eq. (\ref{eq_2_2}).
 ```{r}
 knitr::kable(summary(fit_1_final)$coefficients, 
-             caption = "\\label{tab_1_6_1}The estimated coefficents of the final model.")
+             caption = "\\label{tab_1_6_1}The estimated coefficients of the final model.")
 ```
 
 \begin{equation}
 %\resizebox{\linewidth}{!}{$
-Y_{ infections_{ log } } =\begin{bmatrix} persons_{log} & `r paste0(names(coef(fit_1_final))[-1], collapse = "&")` `r paste0("\\\\ ", paste0("\\",rep("vdots",fit_1_final["rank"]), collapse = "&"))`   \end{bmatrix} \begin{bmatrix}  `r paste0(round(coef(fit_1_final),4), collapse = "\\\\")`   \end{bmatrix} +\epsilon
+\eta =\begin{bmatrix} persons_{log} & `r paste0(names(coef(fit_1_final))[-1], collapse = "&")` `r paste0("\\\\ ", paste0("\\",rep("vdots",fit_1_final["rank"]), collapse = "&"))`   \end{bmatrix} \begin{bmatrix}  `r paste0(round(coef(fit_1_final),4), collapse = "\\\\")`   \end{bmatrix} +\epsilon
 %$}
 \label{eq_2_2}
 \end{equation}
 
-The odds ratio can be conducted from the parameter estimate given in table \ref{tab_1_6_2O} and in model (\ref{eq_2_2}). By using the inverse log-transformation 
 
-It is possible to do the inverse log-transformation in order to obtain the ratio of having the ear infections.
+The inverse mapping $g^{-1}(\cdot)$ expresses the mean value $\mu$ as a function of the linear predictor $\eta$, see (\ref{eq_2_222})\footnote{Sec. 4.3, Introduction to General and Generalized Linear Models by Madsen \& Thyregod.}.
 
-```{r}
-# Odds ratio
-knitr::kable(t(exp(coef(fit_1_final) + sqrt(diag(vcov(fit_1_final))) %o% c(CI_low=-1, mean=0, CI_up=1) * qt(0.975, fit_1_final$df.residual))[2,]), 
-             caption = "\\label{tab_1_6_2O}Odds ratio and its 95% confidence intervals.")
-```
+\begin{equation}
+\begin{aligned}
+\mu  =& `r paste(round(exp(coef(fit_1_final))[1],4), "\\cdot persons_{log} \\,+ ", gsub("[:]"," \\cdot ", gsub("I[(]|[(]|[)]","",paste("\\\\& ", round(exp(coef(fit_1_final))[-1],4), " \\cdot ", names(coef(fit_1_final)[-1]), collapse = " "))))`
+\end{aligned}
+\label{eq_2_222}
+\end{equation}
 
-The change of having the ear infection is $\gamma=exp(\beta_{locationNonBeach})=`r exp(coef(fit_1_final))[2]`$ times higher if the swim takes place in the "NonBeach" areas where the gender, age and frequency of the swimmer does not have a significantly effect of having the ear infection. 
-
-The goodness of the fit, compared to its null model, do have a significantly p-value. This tells that the reduced model does not predict the target values sufficiently better than its null model. See the chunk below:
+The goodness of the fit, compared to its null model, does have a significantly p-value. This means that the reduced model does not predict the target values sufficiently better than its null model. See the chunk below:
 ```{r, echo=TRUE}
 1-pchisq(fit_1_final$null.deviance-fit_1_final$deviance, df=fit_1_final$df.null-fit_1_final$df.residual)
 ```
+
+
+The odds ratios can be conducted from the parameter estimates from the given model (\ref{eq_2_222}). The ratios of having ear infections are given in table \ref{tab_1_6_2O}.
+
+```{r}
+# Odds ratio
+tmp <- t(exp(coef(fit_1_final) + sqrt(diag(vcov(fit_1_final))) %o% c(CI_low=-1, mean=0, CI_up=1) * qt(0.975, fit_1_final$df.residual)))
+colnames(tmp)[1] <- "persons_log" 
+knitr::kable(tmp, 
+             caption = "\\label{tab_1_6_2O}Odds ratios and its 95% confidence intervals.")
+```
+
+The assumption of the proportionally correlated rate of ear infections as a function of the size of the group is positive and given by the "intercept": $\gamma=exp(\beta_{persons_{log}})=`r round(exp(coef(fit_1_final))[1],4)`$.
+
+The odds ratio of having the ear infection is $\gamma=exp(\beta_{locationNonBeach})=`r round(exp(coef(fit_1_final))[2],4)`$ times higher if the swim is taking place in the "NonBeach" areas compared to the "Beach" areas. Gender, age and frequency of the swims does not have a significantly effect of having the ear infection. 
+
 
 \newpage
 ## Q 2.P1.1
@@ -344,63 +368,48 @@ n <- dim(dat)[1]
 p <- dim(dat)[2]
 ```
 
-The data set contains `r n` observations and `r p` variables.
+The data set contains `r n` observations and `r p` variables. The response variable has the following property:
 
-The repsonds variable has the following properties:
+* `Ozone` is a non-negative discrete response variable. It reports the Ozone concentration in ppm at Sandbug AFB.
 
-  A data frame containing 330 observations on the following variables.
+There are eight other explanatory variables with the following properties:
 
-Ozone:
-  Ozone conc., ppm, at Sandbug AFB.
-Temp:
-  Temperature F. (max?).
-InvHt:
-  Inversion base height, feet
-Pres:
-  Daggett pressure gradient (mm Hg)
-Vis:
-  Visibility (miles)
-Hgt:
-  Vandenburg 500 millibar height (m)
-Hum:
-  Humidity, percent
-InvTmp:
-  Inversion base temperature, degrees F.
-Wind:
-  Wind speed, mph
-day	Calendar day, between 1 and 366.
+* `Temp` is a non-negative discrete variable with the following statistics: `min=``r min(dat$Temp)`, `mean=``r round(mean(dat$Temp),3)`, `median=``r median(dat$Temp)` and `max=``r max(dat$Temp)`. The variable describes the temperature in F.
+* `InvHt` is a non-negative discrete variable with the following statistics: `min=``r min(dat$InvHt)`, `mean=``r round(mean(dat$InvHt),3)`, `median=``r median(dat$InvHt)` and `max=``r max(dat$InvHt)`. The variable describes the inversion base height in feet.
+* `Pres` is a discrete variable with the following statistics: `min=``r min(dat$Pres)`, `mean=``r round(mean(dat$Pres),3)`, `median=``r median(dat$Pres)` and `max=``r max(dat$Pres)`. The variable describes the Daggett pressure gradient in mm Hg.
+* `Vis` is a non-negative discrete variable with the following statistics: `min=``r min(dat$Vis)`, `mean=``r round(mean(dat$Vis),3)`, `median=``r median(dat$Vis)` and `max=``r max(dat$Vis)`. The variable describes the visibility in miles.
+* `Hgt` is a non-negative discrete variable with the following statistics: `min=``r min(dat$Hgt)`, `mean=``r round(mean(dat$Hgt),3)`, `median=``r median(dat$Hgt)` and `max=``r max(dat$Hgt)`. The variable describes the Vandenburg 500 millibar height (m) which is the gravity-adjusted height.
+* `Hum` is a non-negative discrete variable with the following statistics: `min=``r min(dat$Hum)`, `mean=``r round(mean(dat$Hum),3)`, `median=``r median(dat$Hum)` and `max=``r max(dat$Hum)`. The variable describes the humidity in percent.
+* `InvTmp` is a numeric variable with the following statistics: `min=``r min(dat$InvTmp)`, `mean=``r round(mean(dat$InvTmp),3)`, `median=``r median(dat$InvTmp)` and `max=``r max(dat$InvTmp)`. The variable describes the inversion base temperature in degrees F.
+* `Wind` is a non-negative discrete variable with the following statistics: `min=``r min(dat$Wind)`, `mean=``r round(mean(dat$Wind),3)`, `median=``r median(dat$Wind)` and `max=``r max(dat$Wind)`. The variable describes the wind speed in mph.
 
+\newpage
 
+Figure \ref{fig_2_1} and figure \ref{fig_2_2} shows two informative plots: a `paris()`-plot and a correlation-plot. Theses plots provide a great insight of the variables within the data set. The `pairs()`-plot in figure \ref{fig_2_1} visualizes the distributions of the variables and their interactions. It is clear that the response variable needs to be log-transformed due to its negative skewness in its distribution, see the upper left histogram in figure \ref{fig_2_1}. 
 
-The response variable has the following property:
-
-* `infections` is a non-negative discrete numerical response variable which has no upper limit. 
-
-There are five other explanatory variables with the following properties:
-
-* `swimmer` is a nominal categorical variable with two levels: `r paste(levels(dat$swimmer), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The variable describes how often the swimmer takes a swim.
-* `location` is a nominal categorical variable with two levels: `r paste(levels(dat$location), collapse = ", ")`. The variable could easily be described as a logical variable when it is only having two levels. The levels of the variable describes the location of the swim.
-* `age` is an ordinal categorical variable with three levels: `r paste(levels(dat$age), collapse = ", ")`. The variable describes the age interval of a given group.
-* `persons` is a non-negative discrete numerical variable with a of `min=``r min(dat$persons)`, `mean=``r round(mean(dat$persons),3)`, `median=``r median(dat$persons)` and `max=``r max(dat$persons)`.
-The variable the number of persons in the given group.
-
-
-
-
-CORRELATION
-
-```{r}
-pairs(dat, panel = panel.smooth, main = "Ozone data")
+```{r, fig.asp=1, fig.cap="\\label{fig_2_1}Pairs plot of the data set.",}
+pairs(dat, panel = panel.smooth, diag.panel = function(x, ...) {
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)}
+)
 ```
 
-```{r}
-df_plot <- dat %>% select(-Ozone) %>% cor(.) %>% reshape2::melt(.)
+\newpage
+
+Figure \ref{fig_2_2} shows the correlation coefficients among all the variables. 
+
+```{r, fig.cap="\\label{fig_2_2}Correlation plot of the variables in the data set."}
+df_plot <- dat %>%  cor(.) %>% reshape2::melt(.)
 ggplot(df_plot, aes(x=Var1, y=Var2, fill=value)) +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white",
                        midpoint = 0, limit = c(-1,1), space = "Lab", name="correlation") +
 
   geom_tile(color = "white") +
-  scale_x_discrete(limits = rev(levels(df_plot$Var2))) +
+  scale_y_discrete(limits = rev(levels(df_plot$Var2))) +
   labs(x = "", y = "", color = "") +
   annotate(x=df_plot$Var1, y=df_plot$Var2,
            label=paste(round(df_plot$value,2)),
@@ -408,6 +417,7 @@ ggplot(df_plot, aes(x=Var1, y=Var2, fill=value)) +
   theme_TS()
 n_head <- 10
 ```
+The output below reports the `r n_head` highest absolute correlation values.
 
 ```{r}
 df_plot %>%
@@ -419,25 +429,24 @@ df_plot %>%
   head(n_head)
 ```
 
+\newpage
 ## Q 2.P1.2
 
-The notation of the additive model is given in (\ref{eq_2_1}).
+The general linear model is given in (\ref{eq_2_1}). The linear model includes an intercept, all the explanatory variables and all the possible interaction terms. This is a naive approach do to the obtained correlation structure illustrated in figure \ref{fig_2_2}.
 
 \begin{equation}
-Y_{ DIOX_{ log } }=X \beta +\epsilon
+Y_{ Ozone }=X \beta +\epsilon
 \label{eq_2_1}
 \end{equation}
 
-where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+where $\beta$ are the parameters which needs to be estimated. $X$ is the design matrix which is given below:
 
-  \begin{equation*}
-X = \begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & \cdots & PLANT & TIME & LAB \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
+\begin{equation*}
+X = \begin{bmatrix} 1 & Temp & InvHt & Pres & Vis & Hgt & \cdots & Hum \cdot Wind & InvTmp \cdot Wind \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots& \vdots   \end{bmatrix}
 \end{equation*}
 
-only consider additive and linear effects -- > does it include interactions?
-
-
-  ```{r}
+The output below shows the fit of general linear model:
+```{r, echo=TRUE}
 fit_2_1 <- lm(Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind +
                 Temp:InvHt + Temp:Pres + Temp:Vis + Temp:Hgt + Temp:Hum + Temp:InvTmp + Temp:Wind +
                 InvHt:Pres + InvHt:Vis + InvHt:Hgt + InvHt:Hum + InvHt:InvTmp + InvHt:Wind +
@@ -446,23 +455,22 @@ fit_2_1 <- lm(Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind 
                 Hgt:Hum + Hgt:InvTmp + Hgt:Wind +
                 Hum:InvTmp + Hum:Wind +
                 InvTmp:Wind, data = dat)
-
-summary(fit_2_1)
 ```
 
-Residual analysis
-```{r, fig.cap="\\label{fig_2_1}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
-res_ana_plot(res = fit_2_1$residuals, fit = fit_2_1$fitted.values)
+Figure \ref{fig_2_3} shows multiple informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot of the residuals.
+
+```{r, fig.cap="\\label{fig_2_3}Four residual plots of fit\\_2\\_1."}
+res_ana_plot(res = fit_2_1$residuals, fit = fit_2_1$fitted.values, x_labs = "Fitted values")
 ```
 
-* ad
-* ad
+In the scatter plot with residuals as a function of the fitted values it is possible to see that the variance grow proportionally to the increase in the fitted values. This is also supported by the scale-location plot in top right corner. In order to solve this growth in variance it is possible to either perform a weighted analysis or perform a log-transformation of the dependent variable `Ozone`\footnote{Sec. 3.10, Introduction to General and Generalized Linear Models by Madsen \& Thyregod.}. 
 
 ## Q 2.P1.3
+A log-transformation has been carried out in order to stabilize the variance. By recalling the distribution of the response in figure \ref{fig_2_1} and the properties of this variable, a log-transformation makes sense intuitively.
 
-From figure \ref{fig_2_1} it is possible to see...
+The output below shows the new fit of the general linear model with a log-transformed response variable.
 
-```{r}
+```{r, echo=TRUE}
 fit_2_2 <- lm(log(Ozone) ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind +
                 Temp:InvHt + Temp:Pres + Temp:Vis + Temp:Hgt + Temp:Hum + Temp:InvTmp + Temp:Wind +
                 InvHt:Pres + InvHt:Vis + InvHt:Hgt + InvHt:Hum + InvHt:InvTmp + InvHt:Wind +
@@ -471,59 +479,273 @@ fit_2_2 <- lm(log(Ozone) ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + 
                 Hgt:Hum + Hgt:InvTmp + Hgt:Wind +
                 Hum:InvTmp + Hum:Wind +
                 InvTmp:Wind, data = dat)
-summary(fit_2_2)
 ```
 
-Residual analysis
-```{r, fig.cap="\\label{fig_2_2}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
+Figure \ref{fig_2_4} shows four plots of the new residuals. 
+
+```{r, fig.cap="\\label{fig_2_4}Four residual plots of fit\\_2\\_2."}
 res_ana_plot(res = fit_2_2$residuals, fit = fit_2_2$fitted.values)
 ```
 
+The log-transformation solved the issue of the growing variance as demonstrated in the scale location plot. There is a decrease in variance but the property of the variance is still conflicting with the underlying assumptions in the general linear model where the variance must be constant.
+
+\newpage
 
 ## Q 2.P1.4
-Fit at least two different (sensible) generalized linear models to the data (you do not have report residual plots of all the models here), and compare these model by a quantitative numbers (you can play around with the distribution assumption and the link function).
+
+It has been chosen to fit two different generalized linear models to the data. The two initial models are simple additive models which include all the explanatory variables and non interaction terms. The difference between each of the models is their link-functions. Both models use the Gamma exponential distribution family.
+
+Common for the two models is the reduction process which has been automated by the `auto_drop1()`-function. The function uses backward elimination and the function is given in the chunk below:
+```{r, echo=TRUE}
+auto_drop1 <- function(fit, alpha = 0.05) {
+  change <- c()
+  for (ii in 1:length(coef(fit))) {
+    tmp <- drop1(fit, test = "Chisq")
+    if(tmp$`Pr(>Chi)`[which.max(tmp$`Pr(>Chi)`)] >= alpha) {
+      change <- c(change, paste0(" -", row.names(tmp)[which.max(tmp$`Pr(>Chi)`)]))
+      fit <- update(fit, paste("~ .", paste(change, collapse = " ")))
+    } else {
+      return(fit)
+    }
+  }
+}
+```
+
+The two initial models are based upon the same explanatory variables as mentioned before. The two models are using different link functions:
+
+* `fit_3_1` is using the gamma exponential family with a `log`-link.
+* `fit_3_2` is using the gamma exponential family with a `inverse`-link. 
+
+I expect that the fit (`fit_3_1`) using the `log`-link function obtains the best performance due to the characteristics from question 2.P1.3.
+
+The chunk below shows two initial models with identical explanatory variables and distribution family but with different link-functions.
+
+```{r, echo=TRUE}
+# model 1
+fit_3_1 <- glm(formula = Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind,
+               family = Gamma(link = "log"), 
+               data = dat)
+# model 2
+fit_3_2 <- glm(formula = Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind,
+               family = Gamma(link = "inverse"), 
+               data = dat)
+```
+
+There has been applied "automated" backward elimination by the `auto_drop1()`-function on the above two models.
+
+```{r}
+fit_3_1_final_sub <- auto_drop1(fit_3_1)
+fit_3_2_final_sub <- auto_drop1(fit_3_2)
+# outliers
+fit_3_1_final <- update(fit_3_1_final_sub, . ~ ., data = dat[!(abs(fit_3_1_final_sub$residuals) > (abs(median(fit_3_1_final_sub$residuals)) + sd(fit_3_1_final_sub$residuals) * 3)), ])
+fit_3_2_final <- update(fit_3_2_final_sub, . ~ ., data = dat[!(abs(fit_3_2_final_sub$residuals) > (abs(median(fit_3_2_final_sub$residuals)) + sd(fit_3_2_final_sub$residuals) * 3)), ])
+```
+
+Several of outliers have been detected during the pre-analysis of the residuals. 
+The chosen definition of an outlier is: 
+
+* A residual which is bigger than `3x` standard deviations from its median. There have been classified following number of outliers from the residuals. 
+* `r table(abs(fit_3_1_final_sub$residuals) > (abs(median(fit_3_1_final_sub$residuals)) + sd(fit_3_1_final_sub$residuals) * 3))[["TRUE"]]` and `r table(abs(fit_3_2_final_sub$residuals) > (abs(median(fit_3_2_final_sub$residuals)) + sd(fit_3_2_final_sub$residuals) * 3))[["TRUE"]]` outliers for the `fit_3_1` and the `fit_3_2` respectively.
+
+It has been chosen to re-estimate the parameters of the reduced models with exclusion of the outliers since the models use equal weights for each of the observations.
+
+Figure \ref{fig_2_5} and \ref{fig_2_6} shows the residual plots for each of the two re-estimated models. 
+
+```{r, fig.cap="\\label{fig_2_5}Four residual plots of fit\\_3\\_1."}
+res_ana_plot(res = fit_3_1_final$residuals, fit = as.integer(fit_3_1_final$fitted.values), x_labs = "Fitted values")
+```
+
+It is possible to see that model from figure \ref{fig_2_6} (`fit_3_2`) struggles to estimate low values of the dependent variable. The histogram has a longer right tail which means the model tends to overestimate the response values.
+It might be concluded that the variance is now inverse proportional to the value of the dependent variable. 
+The QQ-plot for `fit_3_1` seems to be acceptable after the exclusion of the `r sum(abs(fit_3_1_final_sub$residuals) > (abs(median(fit_3_1_final_sub$residuals)) + sd(fit_3_1_final_sub$residuals) * 3))` outliers. There are still a few observations in each tail which are deviating from the diagonal but they are inside the $95\%$ confidence intervals. 
+
+```{r, fig.cap="\\label{fig_2_6}Four residual plots of fit\\_3\\_2."}
+res_ana_plot(res = fit_3_2_final$residuals, fit = fit_3_2_final$fitted.values, x_labs = "Fitted values")
+```
+
+The obtained residuals produced by the two models seems to be more evenly distributed around its mean in the scatter plot and in the scale location plot in figure \ref{fig_2_5} compared to the patterns in figure \ref{fig_2_6}.
+
+\newpage
+
+Table \ref{tab_p1_4_1} reports the quantitative numbers and metrics of the two models.
+
+```{r}
+data.frame(AIC = c(AIC(fit_3_1_final), AIC(fit_3_2_final)),
+           BIC = c(BIC(fit_3_1_final), BIC(fit_3_2_final)),
+           logLik = c(logLik(fit_3_1_final)[1], logLik(fit_3_2_final)[1]),
+           K = c(fit_3_1_final$rank, fit_3_2_final$rank)) %>% 
+  magrittr::set_rownames(., c("fit_3_1", "fit_3_2")) %>% 
+  knitr::kable(.,
+             caption = "\\label{tab_p1_4_1}Comparing fit\\_3\\_1 and fit\\_3\\_1.")
+```
+
+It has been chosen to use the `AIC`, `BIC`, `logLik` and `K` (the number of parameters in the model) for comparing the two models. To entail a better model the values of `AIC`, `BIC` and `K` must be decreased and the value of `logLik` must be increased.
+`fit_3_1` is the most suitable model according to the quantitative numbers in table \ref{tab_p1_4_1}.
 
 
-
+\newpage
 ## Q 2.P1.5
-Compare the model under question 3 and the model chosen from question 4, which one would you prefer (if you choose a quantitative measure you will need to take the transfor- mation into account)?
 
+Table \ref{tab_p1_5_1} summaries a few performance metrics which enables a fair comparison of the prediction error for the LM and the GLM in `fit_2_2` and `fit_3_1` respectively. 
+
+The fit of the model `fit_2_2` has also been re-estimated according to the previously mentioned outlier criteria. There were `r sum(abs(fit_2_2$residuals) > (abs(median(fit_2_2$residuals)) + sd(fit_2_2$residuals) * 3))` observations outside the `3x` standard deviations.
+
+The inverse log-transformed of the `fit_2_2` has been done in order to make the model from question 3 comparable with the model from question 4. Figure \ref{fig_2_5} (`fit_3_1`) and figure \ref{fig_2_9} (`fit_2_2`) shows selected residual plots of the two models. The residual plots will be used as a supplement to the quantitative performance metrics in table \ref{tab_p1_5_1} below.
+
+
+```{r}
+# outliers
+fit_2_2_final <- update(fit_2_2, . ~ ., data = dat[!(abs(fit_2_2$residuals) > (abs(median(fit_2_2$residuals)) + sd(fit_2_2$residuals) * 3)), ])
+#
+data.frame(MSE = c(MSE_func(fit_3_1_final$data$Ozone, fit_3_1_final$fitted.values), 
+                   MSE_func(exp(fit_2_2_final$model$`log(Ozone)`), exp(fit_2_2_final$fitted.values))),
+           RMSE = c(RMSE_func(fit_3_1_final$data$Ozone, fit_3_1_final$fitted.values), 
+                   RMSE_func(exp(fit_2_2_final$model$`log(Ozone)`), exp(fit_2_2_final$fitted.values))),
+           R2 = c(R2_func(fit_3_1_final$data$Ozone, fit_3_1_final$fitted.values), 
+                   R2_func(exp(fit_2_2_final$model$`log(Ozone)`), exp(fit_2_2_final$fitted.values))),
+           R2adj = c(R2adj_func(fit_3_1_final$data$Ozone, 
+                                fit_3_1_final$fitted.values, fit_3_1_final$rank), 
+                     R2adj_func(exp(fit_2_2_final$model$`log(Ozone)`), 
+                                exp(fit_2_2_final$fitted.values), fit_2_2_final$rank)),
+           K = c(fit_3_1_final$rank, fit_2_2_final$rank)) %>% 
+  magrittr::set_rownames(., c("fit_3_2","fit_2_2")) %>% 
+  knitr::kable(.,
+             caption = "\\label{tab_p1_5_1}Quantitative numbers of the two models.")
+
+fit_3_1 <- fit_3_1_final
+```
+
+The quantitative numbers in table \ref{tab_p1_5_1} tell that the `fit_2_2` in most cases is performing better than `fit_3_1`. 
+The model complex is much higher in the `fit_2_2` which is recognized for in the adjusted `R`$^2$. By considering the model complexity (`K`) the `fit_3_1` does a much better job of describing the systematic behavior within the data.
+
+Figure \ref{fig_2_9} shows the residual plots of the re-estimated `fit_2_2`. The residual plots of `fit_3_1` was given in figure \ref{fig_2_5}.
+
+```{r, fig.cap="\\label{fig_2_9}Four residual plots of the updated fit\\_2\\_2."}
+res_ana_plot(res =  exp(fit_2_2$residuals), fit = exp(fit_2_2$fitted.values), x_labs = "Fitted values")
+```
+
+The tails in the histogram are much wider compared to the tails in the histogram in figure \ref{fig_2_5}. There are several observations outside the confidence intervals in the QQ-plot for `fit_2_2` where there are less in the QQ-plot for `fit_3_1` in figure \ref{fig_2_5}.
+By joining the quantitative numbers and the residual patterns it can be concluded that the `fit_3_1` is the most appropriate model for further development. 
+
+\newpage
 ## Q 2.P1.6
-For the chosen generalized linear model write down explicitly the diagonal elements of the weight matrix (W) as a function of $\mu_i$, check your calculation by comparing the dispersion matrix of the parameters from the R function (summary(fit)$cov.scaled) with your own calculation.
 
-
-```{r}
-summary(fit_2_2)$cov.scaled
-```
-
-
-## Q 2.P2.1
-
-Devellop the model you have chosen under the previous part, you might consider both higher order polynomials and interaction terms.
-
-```{r}
-fit_2_2 <- lm(log(Ozone) ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind, data = dat)
-summary(fit_2_2)
-```
-
-Residual analysis
-```{r, fig.cap="\\label{fig_2_2}Subplot of four informative plots; A histogram of the residuals, a scatter plot with residuals as a function of the fitted values, a scatter plot of scale location and a normal QQ-plot."}
-res_ana_plot(res = fit_2_2$residuals, fit = fit_2_2$fitted.values)
-```
-
-
-
-## Q 2.P2.2
-
-Present the final model.
+The diagonal elements in the weight matrix $W$ for the given Gamma distribution can be derived from eq. \ref{eq_p1_1}\footnote{Eq. 4.43, Introduction to General and Generalized Linear Models by Madsen \& Thyregod.}.
 
 \begin{equation}
-Y_{ DIOX_{ log } }=X \beta +\epsilon
-\label{eq_1_1}
+W_{ii} = \mathrm{diag}\left\{ \frac{w_{i}}{ g'(\mu_i)^2 \cdot V(\mu_i)} \right\} 
+\label{eq_p1_1}
+\end{equation}
+where $V(\mu_i) = \mu_i^2$ is the unit variance function for the Gamma family\footnote{Table 4.2, Introduction to General and Generalized Linear Models by Madsen \& Thyregod.}. $g'(\mu_i)$ can be derived from $g(\mu_i) =log(\mu_i) \Rightarrow g'(\mu_i)=exp(g(\mu_i))=\mu_i$. $w_i$ is the estimated shape parameter $\alpha$ of the Gamma distribution. $\alpha = \frac{1}{\phi}$ where $\phi$ is the dispersion parameter which is given in `summary(fit)`-function.
+
+The diagonal weights of $W$ are given by eq. \ref{eq_p1_2}.
+The weights for the given family and link-function are derived by substitution and reduction of the latter mentioned terms into eq. \ref{eq_p1_1}.
+
+\begin{equation}
+W_{ii} = \mathrm{diag}\left\{ \frac{1}{\phi} \right\} 
+\label{eq_p1_2}
 \end{equation}
 
-where $\beta$ are the parameters which we want to estimate and $X$ is the design matrix given below:
+It is required to estimate the dispersion matrix and extract the diagonal elements in order to compare the weights with the `diag(summary(fit_3_1)$cov.scaled))` vector. This has been done by eq. \ref{eq_p1_3}.
 
-  \begin{equation*}
-X = \begin{bmatrix} 1 & OXYGEN & LOAD & PRSEK & \cdots & PLANT & TIME & LAB \\ \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots   \end{bmatrix}
-\end{equation*}
+\begin{equation}
+w_{ii} = \mathrm{diag}\left\{ (X^T W X)^{-1} \right\} 
+\label{eq_p1_3}
+\end{equation}
+
+The code chunk below shows the implementation and reports the estimated diagonal weights along with the `diag(summary(fit_3_1)$cov.scaled))`.
+
+```{r, echo=TRUE}
+# get alpha
+alpha <- 1 / summary(fit_3_1)$dispersion
+# create the diagonal in the W matrix
+# for log link-function
+W <- diag(rep(alpha, length(fit_3_1$fitted.values)))
+# for inverse link-function
+# W <- diag(alpha * fit_3_1_final$fitted.values^2)
+# transform model object to design matrix
+X <- model.matrix(fit_3_1)
+# calculate the weigths
+w_ii <- diag(solve(t(X) %*% W %*% X))
+#
+cbind(cov.scaled = diag(summary(fit_3_1)$cov.scaled), w_ii)
+```
+
+The values of the weights are identical.
+
+
+\newpage
+## Q 2.P2.1
+
+It has been chosen to further develop model `fit_3_1`. The current state of the model does only include the following explanatory variables: `r gsub("[(]|[)]","",paste(names(coef(fit_3_1)), collapse = ", "))`.
+
+I has been suggested to include higher order terms and interaction terms. It has been chosen to expand the model complexity and raise all the "single" terms to second order and third order. See the chunk below to see the new initial model (`fit_4`).
+
+```{r, echo=TRUE}
+# full model with higher order terms
+fit_4 <- glm(formula = Ozone ~ 1 + Temp + InvHt + Pres + Vis + Hgt + Hum + InvTmp + Wind +
+                 I(Temp^2) + I(InvHt^2) + I(Pres^2) + I(Vis^2) + I(Hgt^2) + I(Hum^2)+ I(InvTmp^2) + I(Wind^2) +
+                 I(Temp^3) + I(InvHt^3) + I(Pres^3) + I(Vis^3) + I(Hgt^3) + I(Hum^3)+ I(InvTmp^3) + I(Wind^3) +
+                 Temp:InvHt + Temp:Pres + Temp:Vis + Temp:Hgt + Temp:Hum + Temp:InvTmp + Temp:Wind +
+                 InvHt:Pres + InvHt:Vis + InvHt:Hgt + InvHt:Hum + InvHt:InvTmp + InvHt:Wind +
+                 Pres:Vis + Pres:Hgt + Pres:Hum + Pres:InvTmp + Pres:Wind +
+                 Vis:Hgt + Vis:Hum + Vis:InvTmp + Vis:Wind +
+                 Hgt:Hum + Hgt:InvTmp + Hgt:Wind +
+                 Hum:InvTmp + Hum:Wind +
+                 InvTmp:Wind,
+               family = Gamma(link = "log"), 
+               data = dat)
+```
+
+```{r}
+# auto drop values
+fit_final_1 <- auto_drop1(fit_4)
+# res_ana_plot(res =  fit_final_1$residuals, fit = fit_final_1$fitted.values, x_labs = "Fitted values")
+# outliers....
+fit_final_2 <- update(fit_final_1, . ~ ., data = dat[!(abs(fit_final_1$residuals) > (abs(median(fit_final_1$residuals)) + sd(fit_final_1$residuals) * 3)), ])
+# res_ana_plot(res =  fit_final_2$residuals, fit = fit_final_2$fitted.values, x_labs = "Fitted values")
+```
+
+The `auto_drop1()`-function has been used to reduce the model complexity by using backward elimination.
+There are `r sum((abs(fit_final_1$residuals) > (abs(median(fit_final_1$residuals)) + sd(fit_final_1$residuals) * 3)))` observations which are inside the valid range of an outlier. These observations have been excluded and a re-estimation of the parameters has been carried out using the `update()`-function. The reduced updated model is given in (\ref{eq_4_1}) and selected quantitative performance numbers are given in table \ref{tab_p2_2_1}.
+
+Selected plots for of the residual analysis are given in figure \ref{fig_4_1}.
+```{r, fig.cap="\\label{fig_4_1}Subplot of four informative residual plots of the final model."}
+res_ana_plot(res = fit_final_2$residuals, fit = fit_final_2$fitted.values, x_labs = "Fitted values")
+```
+
+The final model, given in (\ref{eq_4_1}), does a reasonable job of describing the systematic behavior within the data. This is support by a visual inspection of the residual plots in figure \ref{fig_4_1}.
+
+\newpage
+## Q 2.P2.2
+The final model is given in (\ref{eq_4_1}).
+
+\begin{equation}
+\begin{aligned}
+\hat{\eta}  =& `r paste(coef(fit_final_2)[1], " \\,+ ", gsub("[:]"," \\\\cdot ", gsub("I[(]|[(]|[)]","",paste("\\\\& ", coef(fit_final_2)[-1], " \\cdot ", names(coef(fit_final_2))[-1], " \\,+ ", collapse = " "))))`
+\end{aligned}
+\label{eq_4_1}
+\end{equation}
+
+Table \ref{tab_p2_2_1} reports the quantitative performance numbers from the final model. Despite the increased number of parameters (`K`) the performance metric is better performing compared to initial reduced model of `fit_3_1` (see table \ref{tab_p1_4_1}).
+
+```{r}
+data.frame(AIC = AIC(fit_final_2),
+           BIC = BIC(fit_final_2),
+           logLik = logLik(fit_final_2)[1],
+           K = fit_final_2$rank#,
+           #Deviance = fit_final_2$deviance
+           ) %>% 
+  magrittr::set_rownames(., c("Final model")) %>% 
+  knitr::kable(., caption = "\\label{tab_p2_2_1}Quantitative performance numbers of the final model.")
+
+fit_3_1 <- fit_3_1_final
+fit_4 <- fit_final_2
+
+```
+
+The chunk below shows the goodness of fit where the final model (`fit_4`) is compared to the chosen reduced model (`fit_3_1`) from Q2.P1.4. 
+```{r, echo=TRUE}
+1-pchisq(fit_3_1$deviance-fit_4$deviance, df=fit_3_1$df.residual-fit_4$df.residual)
+```
+The returned p-value shows how the performance of the two models are far from identical. The final model (`fit_4`) describes the systematic variation within the data better compared to the chosen reduced model (`fit_3_1`).
