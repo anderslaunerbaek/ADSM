@@ -17,13 +17,10 @@ knitr::opts_chunk$set(echo=FALSE,
                       warning=FALSE,
                       fig.width=8, fig.height=4,
                       fig.show='hold', fig.align='center',
-                      
                       eval=TRUE, 
                       tidy=TRUE, 
                       dev='pdf', 
                       cache=TRUE, fig.pos="th!")
-
-
 
 library(ggplot2)
 library(dplyr)
