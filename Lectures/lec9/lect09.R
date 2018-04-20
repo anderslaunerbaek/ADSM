@@ -2,7 +2,7 @@ rm(list=ls())
 library(nlme)
 #######################################################################
 # Example: Ramus bone length
-ramus<-read.table("ramus.txt",header=T)
+ramus<-read.table("~/DTU/Courses/ADSM/Lectures/lec9/ramus.txt",header=T)
 
 ## Plot data
 plot(ramus[ ,-1],pch=19,col=as.numeric(ramus[ ,1]))
@@ -91,7 +91,7 @@ sqrt(diag(solve(Iu)))
 
 ##################################################
 # Rat example 
-rats.tmp<-read.table("rats.csv",sep=";",header=T)
+rats.tmp<-read.table("./lec9/rats.csv",sep=";",header=T)
 rats<-c()
 for(i in 1:dim(rats.tmp)[1]){
   rats<-rbind(rats,cbind(rats.tmp[i,1],rats.tmp[i,2],

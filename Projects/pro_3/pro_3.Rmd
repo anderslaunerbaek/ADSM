@@ -29,9 +29,587 @@ source('~/DTU/Courses/ADSM/Projects/my_functions.R')
 
 ```{r include=FALSE}
 # get data 
-dat <- read.table(file ="~/DTU/Courses/ADSM/Projects/pro_2/data/earinfect.txt", sep = " ", header = T)
+dat <- read.csv(file="~/DTU/Courses/ADSM/Projects/pro_3/data/rats.csv", header = T, sep = "\t") %>% 
+  select(-X) %>% 
+  mutate(week = ifelse(!is.na(week), week, X.1),
+         logw = ifelse(!is.na(logw), logw, X.2),
+         rat = as.factor(rat),
+         week = as.factor(week)) %>% 
+  select(-X.1, -X.2)
+n <- dim(dat)[1]
+p <- dim(dat)[2]
+pretty_n <- 4
+```
+
+<!--
+- https://physoc.onlinelibrary.wiley.com/doi/pdf/10.1113/jphysiol.1954.sp005141
+- 
+-->
+
+
+## Q 1.1
+The provided data `r n` grouped observations with a total of `r p` variables. The response variable has the following property:
+
+* `rat` is a nominal categorical variable with `r nlevels(dat$rat)` levels. Each level correspond to a unique rat in the experiment.
+
+There are three explanatory variables with the following properties:
+
+* `treatm` is a nominal categorical variable with three levels: `r paste(levels(dat$treatm), collapse = ", ")`. The variable describes the treatment for each rat during the experiment.
+
+* `week` is a nominal categorical variable with five levels: `r paste(levels(dat$week), collapse = ", ")`. The variable describes the week where the `logw` has been measured.
+* `logw` is a non-negative discrete variable with the following statistics: `min=``r round(min(dat$logw), pretty_n)`, `mean=``r round(mean(dat$logw), pretty_n)`, `median=``r round(median(dat$logw), pretty_n)` and `max=``r round(max(dat$logw), pretty_n)`. The variable describes the log-transformed wiegth of the rat for the given week.
+
+
+The first step in the explorative analysis of this report is to report few statistics of rats in the controlled trails, see the output below. 
+
+```{r}
+dat %>% mutate(no = n()) %>% 
+  group_by(treatm) %>% 
+  summarise(no = no[1],
+            `No. in treatm` = n(),
+            `No. rats` = length(unique(rat)),
+            Pct = `No. in treatm` / no * 100) %>% 
+  select(-no) %>% 
+  knitr::kable(., caption = "\\label{tb_1_0}Percentage distributions within each experiment.")
+```
+
+It is possible to see that there number of rats which is given one of the three diffrent teatments are not eaqully distributed in the above table \ref{tb_1_0}. There are missing `3` rats in the `Thyroxin` trail in order to obtain a balaced experiment. This inequality between numbers of rats needs to be considered during the modelling process.
+
+
+```{r, eval = FALSE, fig.cap="\\label{fig_1_1}Bar plot of the percentage distribution of rats in the controlled trails."}
+dat %>% mutate(no = n()) %>% 
+  group_by(treatm) %>% 
+  summarise(no = no[1],
+            no_treatm = n(),
+            rat_no = length(unique(rat)),
+            pct = no_treatm / no * 100,
+            pct_int = paste(as.integer(pct), "%")) %>% 
+  ggplot(., aes(x=treatm, y=pct)) + 
+  geom_bar(stat="identity") +
+  labs(x = "Treatment", y = "Precentage distribution") +
+  coord_flip() + theme_TS() +
+  geom_text(aes(label=pct_int), hjust=1, vjust=0, color="white", size=3.5)
+```
+
+The reported `summary()`-output (table \ref{tb_1_1}) below shows the selected statistics of the `logw` for each treatment.
+
+```{r}
+dat %>%
+  group_by(treatm) %>% 
+  summarise(`Min.` = min(logw),
+            `1st Qu.` = quantile(logw,probs = 0.25),
+            Median = median(logw),
+            Mean = mean(logw),
+            `3rd Qu.` = quantile(logw,probs = 0.75),
+            `Max.` = max(logw)) %>% 
+  knitr::kable(., caption = "\\label{tb_1_1}Summary() w.r.t. logw.")
+```
+
+\newpage 
+Figure \ref{fig_1_2} visulizes the statistics of the above `summary()`-output.
+
+```{r, fig.cap="\\label{fig_1_2}Boxplots of the three treatments."}
+dat %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  theme_TS() +
+  labs(x = "Treatment", y = "(log) Weight")
+```
+
+It is not clear to see the effects of the three treatments in the boxplots in figure \ref{fig_1_2} and in table \ref{tb_1_1}. Figure \ref{fig_1_4} shows the average `logw` as a function of week.
+
+```{r, eval=FALSE, fig.cap="\\label{fig_1_3}"}
+dat %>%
+  ggplot(., aes(x=week, y=logw, colour=treatm)) +
+  geom_point() +
+  theme_TS() +
+  labs(x = "Week", 
+       y = "(log) Weigth",
+       colour = "")
+```
+
+```{r, fig.cap="\\label{fig_1_4}The average log-weigth as a function of week."}
+pd <- position_dodge(0.1)
+dat %>%
+  group_by(week, treatm) %>% 
+  summarise(logw_mean = mean(logw),
+            logw_sd = sd(logw),
+            # logw_se = sd(logw) / sqrt(n()),
+            logw_l = logw_mean - logw_sd,
+            logw_h = logw_mean + logw_sd) %>% 
+ggplot(., aes(x=week, y=logw_mean, 
+              colour=treatm, group=treatm)) +
+  geom_errorbar(aes(ymin=logw_l, 
+                    ymax=logw_h),
+                alpha = 0.75, width=1.0, 
+                position=pd) +
+    geom_line(position=pd, alpha = 0.75) +
+    geom_point(position=pd, alpha = 0.75) +
+  theme_TS() +
+  labs(x = "Week", 
+       y = "(log) Weight",
+       colour = "Treatment",
+       group = "")
+```
+
+It has been chosen to add the $\pm$ one std. divation to each treatment for each time point in order visulize the dispersion of the `logw` for the rats within each group in figure \ref{fig_1_4}.
+It is possible to see the effects of cahnges in weigth over time for each of the treatments in figure \ref{fig_1_4} which is impossible in figure \ref{fig_1_2} and in table \ref{tb_1_1}.
+
+* The effects of the three treatments are not clear to seperate the firste two weeks where there is a seperation onwards. The `Plain` and the `Thyroxin` follow each other more less to the end of this expirement where the increase in weigth are decreasing as a function of weeks for the `Thiouracil` drug. 
+* Despite the more or less idential development for the `Plain` and the `Thyroxin` treatment over time is a clear larger dispersion in weigth of the rats ehich are reviced the `Thyroxin` drug.
+
+### Change in weigth as a function of weeks
+
+Table \ref{tb_1_2} reports the similar statistics as table \ref{tb_1_1}, but now with a focus on the change in weigth over weeks. 
+
+```{r}
+dat %>% 
+  tidyr::spread(., week, logw) %>% 
+  mutate(`1_to_2` =`2` - `1`,
+         `2_to_3` =`3` - `2`,
+         `3_to_4` =`4` - `3`,
+         `4_to_5` =`5` - `4`) %>% 
+  select(-`1`,-`2`,-`3`,-`4`,-`5`) %>% 
+  reshape2::melt(., id.vars = c("rat", "treatm"), 
+                 variable.name = "week", 
+                 value.name = "logw") %>% 
+  group_by(treatm) %>% 
+  summarise(`Min.` = min(logw),
+            `1st Qu.` = quantile(logw,probs = 0.25),
+            Median = median(logw),
+            Mean = mean(logw),
+            `3rd Qu.` = quantile(logw,probs = 0.75),
+            `Max.` = max(logw)) %>% 
+  knitr::kable(., caption = "\\label{tb_1_2}Summary() w.r.t. the change in logw over time.")
+```
+
+The exploraed patterns of `Plain` and `Thyroxin`, and `Thiouracil` in figure \ref{fig_1_4} is supported by the `summary()` statistics in table \ref{tb_1_2}.
+
+Figure \ref{fig_1_5} visulizes a box plots for each of the treatments. The visuel representation of table \ref{tb_1_2} support the exploraed patterns of `Plain` and `Thyroxin`, and `Thiouracil`.
+```{r, fig.cap="\\label{fig_1_5}A visual representation of the statistics in table \\ref{tb_1_2}."}
+dat %>% 
+  tidyr::spread(., week, logw) %>% 
+  mutate(`1_to_2` =`2` - `1`,
+         `2_to_3` =`3` - `2`,
+         `3_to_4` =`4` - `3`,
+         `4_to_5` =`5` - `4`) %>% 
+  select(-`1`,-`2`,-`3`,-`4`,-`5`) %>% 
+  reshape2::melt(., id.vars = c("rat", "treatm"), 
+                 variable.name = "week", 
+                 value.name = "logw") %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  theme_TS() +
+  labs(x = "Treatment", y = "Change (log) Weight")
+```
+
+
+The final relevant explorative plot for this data set is the one in figure \ref{fig_1_6}. The plot is combining servel box plots with the $\Delta$`logw` as a function of week for each of the three treatments.
+
+```{r, fig.cap="\\label{fig_1_6}A visual representation of the statistics in table \\ref{tb_1_2}."}
+dat_plot <- dat %>% 
+  tidyr::spread(., week, logw) %>% 
+  mutate(`1_to_2` =`2` - `1`,
+         `2_to_3` =`3` - `2`,
+         `3_to_4` =`4` - `3`,
+         `4_to_5` =`5` - `4`) %>% 
+  select(-`1`,-`2`,-`3`,-`4`,-`5`) %>%  
+  reshape2::melt(., id.vars = c("rat", "treatm"), 
+                 variable.name = "week", 
+                 value.name = "logw")
+
+multiplot(
+  dat_plot %>% 
+  filter(week == "1_to_2") %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  scale_y_continuous(limits = c(0.025, 0.45), breaks = seq(from = 0.025, to = 0.45, by = 0.1)) +
+  theme_TS() +
+  theme(axis.ticks=element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "W1 to W2", y = "Change from week to week (log) Weight"),
+dat_plot %>% 
+  filter(week == "2_to_3") %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  scale_y_continuous(limits = c(0.025, 0.45)) +
+  theme_TS() + 
+  theme(axis.text.y=element_blank(), 
+        axis.ticks=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "W2 to W3", y = ""),
+dat_plot %>% 
+  filter(week == "3_to_4") %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  scale_y_continuous(limits = c(0.025, 0.45)) +
+  theme_TS() +
+  theme(axis.text.y=element_blank(), 
+        axis.ticks=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "W3 to W4", y = ""),
+dat_plot %>% 
+  filter(week == "4_to_5") %>% 
+  ggplot(., aes(treatm, logw)) + 
+  geom_boxplot() + 
+  scale_y_continuous(limits = c(0.025, 0.45)) +
+  theme_TS() + 
+  theme(axis.text.y=element_blank(), 
+        axis.ticks=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(x = "W4 to W5", y = ""),
+cols=4)
+#
+rm(dat_plot)
+```
+
+* This plots that there is a gerenal decreasing trend in the growth of the weigth of the rats as a function of weeks.
+* The pattern of similar behavior between the `Plain` and the `Thyroxin` treatmens expcept for the first week. Here is the gerenel trend for `Thyroxin` is more restrictive for the growth in weigth compared to the `Plain` treatment.
+* It noticable that there are two extreme outliers in the first and in the second week for the `Thyroxin` treatment.
+* The `Thiouracil` treatment has the largest restrictive effect for the growth in weigth compared to the `Plain` and the `Thyroxin` treatmens except for the first week.
+
+
+
+\newpage
+## Q 1.2
+
+To overcome the possibly high correlation between observations of the samme rat is to create one observation pr. rat. This transformation can be done by: `tidyr::spread(dat, week, logw)`-function. Table \ref{tb_1_3} reports the transformed data set.
+
+```{r}
+dat_spred <- dat %>% 
+  tidyr::spread(., week, logw) %>% 
+  mutate(`1_to_2` =`2` - `1`,
+         `2_to_3` =`3` - `2`,
+         `3_to_4` =`4` - `3`,
+         `4_to_5` =`5` - `4`,
+         logw_delta =`5` - `1`) %>% 
+  select(-`1`,-`2`,-`3`,-`4`,-`5`)
+
+dat_spred %>% 
+  knitr::kable(., caption = "\\label{tb_1_3}New independented structure (variable: dat_spred).")
+```
+
+The `summary()`-statistics is calculated on the new data set `dat_spred` and reported in table \ref{tb_1_4}.
+
+
+```{r}
+dat_spred %>% 
+  group_by(treatm) %>% 
+  summarise(`Min.` = min(logw_delta),
+            `1st Qu.` = quantile(logw_delta, probs = 0.25),
+            Median = median(logw_delta),
+            Mean = mean(logw_delta),
+            `3rd Qu.` = quantile(logw_delta, probs = 0.75),
+            `Max.` = max(logw_delta)) %>% 
+  knitr::kable(., caption = "\\label{tb_1_4}Summary() w.r.t. logw\\_delta on new structure (variable: dat_spred).")
+```
+
+
+```{r, eval=FALSE,fig.cap="\\label{fig_1_6}"}
+dat_spred %>%
+  ggplot(., aes(treatm, logw_delta)) + 
+  geom_boxplot() +
+  theme_TS() +
+  labs(x = "Treatment", y = "Change from W1 to W5 (log) Weight")
+```
+
+
+The new dependency structure w.r.t. treatment and the effect of weigth change over the five weeks can be analysed by fitting a simple random effect model. It is assumed that each rat has its own random effect on the cahnge in weigth and the response which is will modelled is the total cahnge in weigth during the expirement. See the chunk below:
+```{r, echo=TRUE}
+library(nlme)
+fit_0 <- lme(logw_delta ~ treatm, random=~1|rat, data=dat_spred, method="ML")
+```
+
+Table \ref{tb_1_5} reports the ANOVA-table of the fit. As already ready explored, the `treatm`-variable is significant in order to predict the effect (`logw_delta`) of the three different drugs. 
+```{r}
+anova(fit_0) %>% 
+  knitr::kable(., caption = "\\label{tb_1_5}ANOVA-table of model fit\\_0.")
+```
+
+Table \ref{tb_1_6} reports the fixed coefficients of the model `fit_0`.
+
+```{r}
+fixed.effects(fit_0) %>% data.frame(.) %>% rename(., Value = `.`)  %>%
+  knitr::kable(., caption = "\\label{tb_1_6}Fixed effects of model fit\\_0.")
+```
+
+The fixed effect for `Thyroxin` is supposed to be sigthly lower than `Plain` and the fixed effect for `Thiouracil` is supposed to be lower than `Plain`. These modelled fixed effects are supported by the plots in figure \ref{fig_1_5} and statistics in table \ref{tb_1_2}.
+
+<!--
+todo: RANDOM effects??
+-->
+
+The random effects can be interpreted as a "latent" variable which not can be observed. The random effects can be extracted by using the `random.effects()`-function and their `summary()`-statistics are reported in table \ref{tb_1_t}. The `visreg()`-function has been applied in order to visulize the random effect from each rat w.r.t. to the estimated model, see figure \ref{fig_1_7}.
+
+```{r}
+data.frame(random.effects(fit_0)) %>% 
+  summarise(`Min.` = min(`X.Intercept.`),
+            `1st Qu.` = quantile(`X.Intercept.`, probs = 0.25),
+            Median = median(`X.Intercept.`),
+            Mean = mean(`X.Intercept.`),
+            `3rd Qu.` = quantile(`X.Intercept.`, probs = 0.75),
+            `Max.` = max(`X.Intercept.`)) %>% 
+  knitr::kable(., caption = "\\label{tb_1_t}Summary() w.r.t. the random effects.")
+```
+
+
+```{r, fig.cap="\\label{fig_1_7}Visulizing the random effects for each rat."}
+library(visreg)
+visreg(fit_0, gg = TRUE, "rat") +
+  theme_TS() +
+  #scale_y_continuous(limits = c(0.8, 1.15), breaks = seq(from = 0, to = 2, by = 0.05)) +
+  labs(x = "rat", y = "Mean respose + random effects")
+```
+
+
+
+
+\newpage
+
+## Q 1.3
+
+### Simple linear mixed model
+
+
+<!--
+todo: week as numeric or factor??
+-->
+
+```{r}
+
+fit_simple <- lme(logw ~ treatm + week + treatm:week, random=~1|rat,
+                  data=dat, method="ML")
+anova(fit_simple)
+dat$fit_simple <- as.vector(fitted(fit_simple))
+# dat$fit_simple_re <- as.vector(random.effects(fit_simple))
+
+coef <- round(summary(fit_simple)$tTable[,"Value"], 4)
+```
+
+Model fixed
+
+\begin{equation}
+\begin{aligned}
+\hat{\eta}  =& `r paste(coef[1], " \\,+ ", gsub("[:]"," \\\\cdot ", gsub("I[(]|[(]|[)]","",paste("\\\\& ", coef[-1], " \\cdot ", names(coef)[-1], " \\,+ ", collapse = " "))))`
+\end{aligned}
+\label{eq_4_1}
+\end{equation}
+
+
+Model random....
+
+
+```{r}
+## Fixed effects
+fixed.effects(fit_simple)
+
+## Estimated randomeffects
+random.effects(fit_simple) # not actual parameters
+
+VarCorr(fit_simple)
+```
+
+```{r}
+dat %>% 
+  group_by(treatm, week) %>% 
+  mutate(fit_mean = mean(fit_simple),
+         res = fit_simple - fit_mean,
+         sd = sd(res),
+         se = sd(res) / sqrt(n()),
+         res_h = fit_mean + sd,
+         res_l = fit_mean - sd) %>% 
+  # distinct(treatm, week, fit_mean, res_h, res_l) %>% 
+  ggplot(.,aes(x=week, y=fit_simple, colour=treatm, group=treatm)) +
+  geom_point() +
+  geom_line(aes(x=week, y=fit_mean, colour=treatm, group=treatm)) +
+  geom_errorbar(aes(ymin=res_l, 
+                    ymax=res_h),
+                width=1.0, 
+                position=pd) +
+  theme_TS() +
+  labs(x = "Week", 
+       y = "(log) Weigth",
+       colour = "")
+```
+
+<!--
+todo: RANDOM effects??
+-->
+
+
+
+
+### log-weight development over time as a second degree polynomial over time
+
+```{r}
+fit_poly <- dat %>% 
+  mutate(week = as.numeric(week)) %>% 
+  lme(logw ~ treatm + week + I(week^2) + treatm:week, random=~1|rat,
+      data=., method="ML")
+
+anova(fit_poly)
+dat$fit_poly <- as.vector(fitted(fit_poly))
+# dat$fit_poly_re <- as.vector(random.effects(fit_poly))
+
+```
+
+
+```{r}
+## Fixed effects
+fixed.effects(fit_poly)
+
+fitted(fit_poly)
+
+## Estimated randomeffects
+random.effects(fit_poly) # not actual parameters
+
+VarCorr(fit_poly)
+
+coef <- round(summary(fit_poly)$tTable[,"Value"], 4)
+```
+
+Model fixed 
+
+\begin{equation}
+\begin{aligned}
+\hat{\eta}  =& `r paste(coef[1], " \\,+ ", gsub("[:]"," \\\\cdot ", gsub("I[(]|[(]|[)]","",paste("\\\\& ", coef[-1], " \\cdot ", names(coef)[-1], " \\,+ ", collapse = " "))))`
+\end{aligned}
+\label{eq_4_1}
+\end{equation}
+
+random..
+
+
+```{r}
+dat %>% 
+  group_by(treatm, week) %>% 
+  mutate(fit_mean = mean(fit_poly),
+         res = fit_poly - fit_mean,
+         sd = sd(res),
+         se = sd(res) / sqrt(n()),
+         res_h = fit_mean + sd,
+         res_l = fit_mean - sd) %>% 
+  # distinct(treatm, week, fit_mean, res_h, res_l) %>% 
+  ggplot(.,aes(x=week, y=fit_poly, colour=treatm, group=treatm)) +
+  geom_point() +
+  geom_line(aes(x=week, y=fit_mean, colour=treatm, group=treatm)) +
+  geom_errorbar(aes(ymin=res_l, 
+                    ymax=res_h),
+                width=1.0, 
+                position=pd) +
+  theme_TS() +
+  labs(x = "Week", 
+       y = "(log) Weigth",
+       colour = "")
+```
+
+
+Er det en outlier som ligger primært under hele vejen langs den grønne?
+
+### Comparing
+
+```{r}
+anova(fit_poly, fit_simple) #%>% as.data.frame(.) %>% 
+  #knitr::kable(., caption = "\\label{tb:}MISIING")
+```
+
+
+
+
+## Q 1.4
+
+
+Analyze the data via a repeated measurement model. Set up a model where the correlation the measurements within each rat is explicitly specified.
+
+
+
+
+```{r}
+fit_simple_gau <- lme(logw ~ treatm + week + treatm:week, random=~1|rat,
+                      # Todo: nugget??
+                      correlation=corGaus(form=~as.numeric(week)|rat, nugget=T),
+                      data=dat, method="ML")
+ 
+fit_simple_exp <- lme(logw ~ treatm + week + treatm:week, random=~1|rat,
+                      # Todo: nugget??
+                      correlation=corExp(form=~as.numeric(week)|rat, nugget=T),
+                      data=dat, method="ML")
+
+fit_simple_comp <- lme(logw ~ treatm + week + treatm:week, random=~1|rat,
+                       # Todo: nugget??
+                       correlation=corCompSymm(form=~1|rat),
+                       data=dat, method="ML")
+
+```
+
+```{r}
+
+anova(fit_simple_comp)
+dat$fit_simple_comp <- as.vector(fitted(fit_simple_comp))
+# dat$fit_simple_comp_re <- as.vector(random.effects(fit_simple_comp))
+
+#plot(Variogram(fit_simple_gau), main='Gau')
+#plot(Variogram(fit_simple_exp), main='Exp')
+#plot(Variogram(fit_simple_comp), main='compound symmetry')
+```
+
+```{r}
+dat %>% 
+  group_by(treatm, week) %>% 
+  mutate(fit_mean = mean(fit_simple_comp),
+         res = fit_simple_comp - fit_mean,
+         sd = sd(res),
+         se = sd(res) / sqrt(n()),
+         res_h = fit_mean + sd,
+         res_l = fit_mean - sd) %>% 
+  # distinct(treatm, week, fit_mean, res_h, res_l) %>% 
+  ggplot(.,aes(x=week, y=fit_simple_comp, colour=treatm, group=treatm)) +
+  geom_point() +
+  geom_line(aes(x=week, y=fit_mean, colour=treatm, group=treatm)) +
+  geom_errorbar(aes(ymin=res_l, 
+                    ymax=res_h),
+                width=1.0, 
+                position=pd) +
+  theme_TS() +
+  labs(x = "Week", 
+       y = "(log) Weigth",
+       colour = "")
+```
+
+
+
+
+
+
+
+## Q 1.5
+
+```{r}
+anova(fit_simple, fit_poly, fit_simple_gau, fit_simple_exp, fit_simple_comp, test = FALSE)
+```
+
+`fit_simple_gau` er det bedste model...
+
+<!--
+New part.
+--> 
+\newpage
+```{r include=FALSE}
+rm(list = ls())
+source('~/DTU/Courses/ADSM/Projects/my_functions.R')
+# get data 
+dat <- read.csv(file="~/DTU/Courses/ADSM/Projects/pro_3/data/simdat3.csv", header = T, sep = " ") %>% 
+  mutate(group = as.factor(group))
 n <- dim(dat)[1]
 p <- dim(dat)[2]
 ```
 
-## Q 1.1
+## Q2.1
+## Q2.2
+## Q2.3
+## Q2.4
+## Q2.5
+## Q2.6
