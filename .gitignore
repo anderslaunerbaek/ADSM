@@ -1,5 +1,8 @@
 # History files
 
+*.o
+*.so
+
 Projects/pro_1/pro_1.pdf
 Projects/pro_2/pro_2.pdf
 Projects/pro_3/pro_3.pdf

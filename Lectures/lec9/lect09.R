@@ -91,7 +91,7 @@ sqrt(diag(solve(Iu)))
 
 ##################################################
 # Rat example 
-rats.tmp<-read.table("./lec9/rats.csv",sep=";",header=T)
+rats.tmp<-read.table("~/DTU/Courses/ADSM/Lectures/lec9/rats.csv",sep=";",header=T)
 rats<-c()
 for(i in 1:dim(rats.tmp)[1]){
   rats<-rbind(rats,cbind(rats.tmp[i,1],rats.tmp[i,2],
@@ -152,13 +152,26 @@ logLik(fit.mm)
 fit.gau <- lme(lnc~month+treatm+month:treatm,
                random=~1|cage,
                correlation=corGaus(form=~as.numeric(month)|cage,nugget=TRUE),
-               data=rats)
+               data=rats, method="ML")
  ##################################################
-
-
-##################################################
 fit.gau
+ 
+ fit.gau$modelStruct
 ##################################################
+ tmp <- summary(fit.gau)
+tmp$sigma
+tmp$contrasts
+##################################################
+
+
+
+
+
+
+rho2 <- exp(as.vector(fit.gau$modelStruct$corStruct))[1]
+nugget <- exp(as.vector(fit.gau$modelStruct$corStruct))[2]
+sigma2 <-nugget^2*exp(as.vector(attr(fit.gau$apVar,"Pars")))[4]
+tau2 <- nugget^2-sigma2
 
 ##################################################
  nu.sq<-0.1404056^2
