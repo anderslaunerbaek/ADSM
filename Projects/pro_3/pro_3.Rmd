@@ -25,6 +25,8 @@ knitr::opts_chunk$set(echo=FALSE,
 library(ggplot2)
 library(dplyr)
 library(nlme)
+library(glmmTMB)
+library(numDeriv)
 source('~/DTU/Courses/ADSM/Projects/my_functions.R')
 ```
 
@@ -613,7 +615,6 @@ New part.
 
 ```{r include=FALSE}
 rm(list = ls())
-library(nlme)
 source('~/DTU/Courses/ADSM/Projects/my_functions.R')
 # get data 
 dat <- read.csv(file="~/DTU/Courses/ADSM/Projects/pro_3/data/simdat3.csv", header = T, sep = " ") %>% 
@@ -725,29 +726,54 @@ summary(fit_glm,"random")
 
 ### Q2.3.1 Write down the model and the estimates, and the interpretation of the parameters
 
+<!--
+https://support.sas.com/rnd/app/stat/examples/BayesSalm93/stat_webex.pdf
+-->
+
+The property of the second stage in the model when using the `glmmTMB()` is that the random effects must be gaussian.
+The model is given in (\ref{eq_2_1}) and the estimated parameters are given in (\ref{eq_2_2}).
 
 \begin{equation}
 \begin{aligned}
-1
+Y_{ i }|\lambda_{ ij }\sim& \mathcal{P}\left( \lambda _{ ij } \right)  \\
+log\left( \lambda _{ ij } \right) =& X_i\beta+\gamma_{ij}\\
+\gamma_{ ij } \sim& \mathcal{N} \left( u_{ij},\, \sigma^2_r \right) 
 \end{aligned}
 \label{eq_2_1}
 \end{equation}
+where $X_i$ is the design matrix with a constant $1$, the two regressors and their interaction. $i = 1,\,2,\, ...,\,300$ for each observation, $j = 1,\,2,\, ...,\,30$ for each group. $u_{ij}$ is the random effect from each group and $\sigma^2_r$ is the dispersion among the groups.
 
 
-glmmTMB SECOND STAGE MUST BE GAUSSIAN
-
-
-```{r, echo=TRUE, eval=FALSE}
-library(glmmTMB)
-fit_TMB <- glmmTMB(formula = y ~ x1 + x2 + group + x1:x2 + x1:group + x2:group + (1|group),
+```{r, echo=TRUE}
+fit_TMB <- glmmTMB(formula = y ~ x1 + x2 + x1:x2 + (1|group),
                    family = poisson(link = "log"), data = dat)
 ```
 
-
-```{r, eval=FALSE}
-summary(fit_TMB) %>% 
-  knitr::kable(., caption = "\\label{tb_2_2}Summary()")
+```{r}
+coef_Q3 <- round(fit_TMB$fit$par, 4)
+coef_Q3[5] <- exp(coef_Q3[5])
+fit_TMB_obj <- fit_TMB$fit$objective
+fit_TMB_re <- fit_TMB$fit$parfull[names(fit_TMB$fit$parfull) %in% "b"]
+# names(coef_Q3) <- c("(Intercept)","x1","x2","x1:x2", "sigma2")
 ```
+
+\begin{equation}
+\begin{aligned}
+Y_{ i }|\lambda_{ ij }\sim& \mathcal{P}\left( \lambda _{ ij } \right)  \\
+log\left( \lambda _{ ij } \right) =& X_i\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q3[-5], collapse = "\\\\"), "\\end{bmatrix}")`+\gamma_{ij}\\
+\gamma_{ ij } \sim& \mathcal{N} \left( u_{ij},\, `r coef_Q3[5]` \right) 
+\end{aligned}
+\label{eq_2_2}
+\end{equation}
+
+where $u_{ij}$ is an estiamted vector whit `r length(fit_TMB_re)` elements assumed to follow the properties of Gaussianity.
+```{r}
+
+
+
+```
+
+Interprect the parameters...
 
 
 ### Q2.3.2 Plot the estimated random effects in some appropriate way
@@ -758,23 +784,40 @@ todo: RANDOM effects??
 
 The `summary()`-statistics of the random effects are reported in table \ref{tb_2_3} and the visualization of the random effects w.r.t. to the estimated model is showed in figure \ref{fig_1_12}.
 
-```{r, eval=FALSE}
-data.frame(random.effects(fit_TMB)) %>% 
-  summarise(`Min.` = min(`X.Intercept.`),
-            `1st Qu.` = quantile(`X.Intercept.`, probs = 0.25),
-            Median = median(`X.Intercept.`),
-            Mean = mean(`X.Intercept.`),
-            `3rd Qu.` = quantile(`X.Intercept.`, probs = 0.75),
-            `Max.` = max(`X.Intercept.`)) %>% 
-  knitr::kable(., caption = "\\label{tb_2_3}Summary() w.r.t. the random effects.")
+```{r}
+data.frame(re = fit_TMB_re) %>% 
+  summarise(`Min.` = min(re),
+            `1st Qu.` = quantile(re, probs = 0.25),
+            Median = median(re),
+            Mean = mean(re),
+            `3rd Qu.` = quantile(re, probs = 0.75),
+            `Max.` = max(re)) %>% 
+  knitr::kable(., caption = "\\label{tb_2_3}Summary() w.r.t. the estimated random effects.")
 ```
 
 
-```{r, eval=FALSE, fig.cap="\\label{fig_2_3}Visulizing the random effects for each rat."}
-visreg(fit_TMB, gg = TRUE, xvar = "rat", by = "treatm") +
-  theme_TS() +
-  #scale_y_continuous(limits = c(0.8, 1.15), breaks = seq(from = 0, to = 2, by = 0.05)) +
-  labs(x = "rat", y = "Mean respose + random effects")
+```{r, fig.cap="\\label{fig_2_3}Visulizing the random effects for each of the groups."}
+dat_TMB <- data.frame(re = fit_TMB_re,
+           re_mean = rep(mean(fit_TMB_re), length(fit_TMB_re)),
+           group = factor(1:length(fit_TMB_re)))
+
+ggplot(dat_TMB, aes(y=fit_TMB_re, x = group)) +
+  geom_point(aes(colour = "Random effects")) +
+  geom_hline(aes( yintercept = re_mean, colour = "Average")) +  
+  labs(x = "Group", y = "Random effect", color = "") +
+  theme_TS()
+```
+
+
+More less Random... not systematic behavoiur ewe wnat to model...
+
+```{r, eval=FALSE, fig.cap="\\label{fig_2_4}A histogrom of the random effects."}
+no_bins <- as.integer(diff(range(dat_TMB$re)) / (2 * IQR(dat_TMB$re) / length(dat_TMB$re)^(1/3)))
+
+ggplot(dat_TMB, aes(fit_TMB_re)) +  
+  geom_histogram(bins = no_bins) +
+  labs(y = "Count", x = "Random effect", color = "") +
+  theme_TS()
 ```
 
 
@@ -793,13 +836,191 @@ simulate from a distribution -> estimate of the interval
 
 
 slide 19..
+```{r, echo=TRUE}
+# negative log-likelihood function
+nll <- function(u, beta, X, sigma.u){
+  eta <- X %*% beta + u[dat$group]
+  # nll if fixed and random effects
+  lln_fix <- -sum(dpois(dat$y, lambda = exp(eta),log=TRUE))
+  lln_ran <- -sum(dnorm(u,sd=sigma.u,log=TRUE))
+  #
+  return(lln_fix + lln_ran)
+}
+# importance sampling
+nll_Laplace_simulate <- function(theta, X, k, seed){
+  set.seed(seed)
+  beta <- theta[-5]
+  sigma.u <- exp(theta[5]) #distribution of the U
+  est <- nlminb(rep(0, 30), objective = nll, #initial value=0
+                beta=beta, sigma.u=sigma.u, X=X)
+  u <- est$par
+  l.u <- est$objective #objective function = likelihood
+  H <- diag(hessian(nll,x=u, beta = beta, X=X, sigma.u=sigma.u))
+  s <- sqrt(1/H)
+  # do simulations
+  L <- sapply(1:k, function(i) {
+    u.sim <- rnorm(length(u), mean=u, sd=s)  
+    # return log-likelihood
+    return(exp(-nll(u=u.sim,beta=beta,sigma.u=sigma.u,X=X))/prod(dnorm(u.sim,mean=u,sd=s)))
+  })
+  # return average negative log-likelihood
+  return(-log(mean(L)))
+}
+```
+
+
+Do importance sampling
+
+table \ref{tb_2_4}
+
+
+```{r}
+k <- 10000
+L <- nll_Laplace_simulate(fit_TMB$fit$par,X=model.matrix(fit_TMB),k=k,seed=22)
+data.frame(fit_TMB = -fit_TMB$fit$objective,
+           `Laplace_simulation` = -L) %>% 
+  knitr::kable(., caption = "\\label{tb_2_4}Check of the accuracy.")
+```
+
 
 
 ## Q2.4
 
 ### Q2.4.1 Write down the model
+
+Now is the second stage model a gamma model with 
+
+
+<!--
+https://academic.oup.com/intqhc/article/15/4/319/1792979
+-->
+
+precision parameter $\lambda$ (the sampling distribution)
+
+
+i.e., a two stage model. In the first stage a random mean value μ is selected
+according to a Gamma distribution. The Y is generated according to a Poisson distribution with that value as mean value. 
+
+\begin{equation}
+\begin{aligned}
+Y_{ i }|\mu_{ ij } \sim& \mathcal{P}\left(\mu_{ ij } \right)  \\
+% log\left( \lambda _{ ij } \right) =& X_i\beta+\gamma_{ij}\\
+\mu_{ij} \sim { G }\left( \sfrac { m }{ \gamma  } ,\, \gamma  \right) 
+\end{aligned}
+\label{eq_2_3}
+\end{equation}
+
 ### Q2.4.2 Estimate parameters and compare with the result in Question 3
+
+
+```{r, echo=TRUE}
+# Negative log-likelihood function
+nll_ga <- function(u, beta, X, sigma.u){
+  eta <- X%*%beta + u[dat$group]
+  # nll if fixed and random effects
+  lln_fix <- -sum(dpois(dat$y,lambda = exp(eta),log=TRUE))
+  # dgamma(x, shape, rate = 1, scale = 1/rate, log = TRUE)
+  
+  lln_ran <- -sum(dgamma(u, shape = 1, scale = sigma.u, log = TRUE))
+  
+  # lln_ran <- -sum(dnorm(u,sd=sigma.u,log=TRUE))
+  #
+  return(lln_fix + lln_ran)
+}
+# Laplace approximation
+nll_LA_ga <- function(theta, X){
+    beta <- theta[1:dim(X)[2]]
+    sigma.u <- exp(theta[dim(X)[2]+1])
+    # message(paste(theta, collapse = ", "))
+    est <- nlminb(rep(0,30), objective = nll_ga, beta=beta, sigma.u=sigma.u, X=X)
+    u <- est$par
+    l.u <- est$objective
+    H <- hessian(func = nll_ga, x = u, beta = beta, sigma.u = sigma.u, X=X)
+    # return log-likelihood
+    return(l.u + 0.5 * log(det(H/(2*pi))))
+}
+```
+
+using rounded estimated values `r paste0("(", paste0(round(fit_TMB$fit$par,0), collapse = ", "),")")` as initial starting value for the optimization..
+
+```{r}
+
+fit_LA_ga <- nlminb(round(fit_TMB$fit$par,0), nll_LA_ga, X=model.matrix(fit_TMB))
+# fit_LA_ga <- nlminb(c(0,0,0,0,0), nll_LA_ga, X=model.matrix(fit_TMB))
+
+
+#fit_TMB$
+#coef_Q4 <- coef_Q3
+```
+
+\begin{equation}
+\begin{aligned}
+1
+%
+\end{aligned}
+\label{eq_2_4}
+\end{equation}
+
+
+compare with question 3
+
+```{r, eval=FALSE}
+#names(coef_Q3) <- c("(Intercept)","x1","x2","x1:x2", "theta")
+#names(coef_Q4) <- c("(Intercept)","x1","x2","x1:x2")
+data.frame(fit_TMB = fit_TMB$fit$par, fit_LA_ga = fit_LA_ga$par) %>% 
+  mutate(delta = fit_LA_ga-fit_TMB) %>% 
+  knitr::kable(., row.names = c("(Intercept)","x1","x2","x1:x2", "theta"),
+               caption = "\\label{tb_2_5}Comparison of parameter estimates by the glmmTMB method and the Laplace approximation metod.")
+  
+```
+
+
+
 ### Q2.4.3 Check the accuracy of the Laplace approximation by importance sampling
+
+```{r, echo=TRUE, eval=FALSE}
+# negative log-likelihood function
+
+
+# importance sampling
+nll_Laplace_simulate_ga <- function(theta, X, k, seed){
+  set.seed(seed)
+  beta <- theta[-5]
+  sigma.u <- exp(theta[5]) #distribution of the U
+  est <- nlminb(rep(0,30), objective = nll_ga, #initial value=0
+                beta=beta, sigma.u=sigma.u, X=X)
+  u <- est$par
+  l.u <- est$objective #objective function = likelihood
+  H <- diag(hessian(nll_ga,x=u, beta = beta, X=X, sigma.u=sigma.u))
+  s <- sqrt(1/H)
+  # do simulations
+  L <- sapply(1:k, function(i) {
+    u.sim <- rnorm(length(u), mean=u, sd=s)  
+    # return log-likelihood
+    return(exp(-nll_ga(u=u.sim,beta=beta,sigma.u=sigma.u,X=X))/prod(dnorm(u.sim,mean=u,sd=s)))
+  })
+  # return average negative log-likelihood
+  return(-log(mean(L)))
+}
+```
+
+
+Do importance sampling
+
+table \ref{tb_2_4}
+
+
+```{r, eval=FALSE}
+k <- 10000
+L <- nll_Laplace_simulate_ga(fit_LA_ga$par,X=model.matrix(fit_TMB),k=k,seed=22)
+#
+data.frame(#fit_TMB = -fit_TMB$fit$objective,
+           fit_LA_ga = -fit_LA_ga$objective,
+           `Laplace_simulation` = -L) %>% 
+  knitr::kable(., caption = "\\label{tb_2_5}Check of the accuracy.")
+```
+
+
 
 
 ## Q2.5
