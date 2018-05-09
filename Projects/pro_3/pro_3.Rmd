@@ -635,7 +635,7 @@ There are three explanatory variables with the following properties:
 * `x1` is a non-negative continuous variable with the following statistics: `min=``r round(min(dat$x1), pretty_n)`, `mean=``r round(mean(dat$x1), pretty_n)`, `median=``r round(median(dat$x1), pretty_n)` and `max=``r round(max(dat$x1), pretty_n)`. The variable describes the first regressor.
 * `x2` is a non-negative continuous variable with the following statistics: `min=``r round(min(dat$x2), pretty_n)`, `mean=``r round(mean(dat$x2), pretty_n)`, `median=``r round(median(dat$x2), pretty_n)` and `max=``r round(max(dat$x2), pretty_n)`. The variable describes the first regressor.
 
-In further analysis, which is excluded, it can be concluded that the two regressors `x1` and `x2` are uniform distributed within the interval `0` to `1`.
+In further analysis, which was excluded, it can be concluded that the two regressors `x1` and `x2` are uniform distributed within the interval `0` to `1`.
 
 ```{r, eval=FALSE}
 for (ii in 1:30){
@@ -647,7 +647,7 @@ for (ii in 1:30){
 }
 ```
 
-Table \ref{tb_2_1} reports the statistics of the response variable `y` for each group. There are `r length(unique(dat$group))` groups within this data set with equally balanced number of observations in each group.
+Table \ref{tb_2_1} reports the statistics of the response variable `y` for each group. There are `r length(unique(dat$group))` groups within this data set with equally balanced numbers of observations in each group.
 
 ```{r}
 dat %>%
@@ -664,7 +664,7 @@ dat %>%
   knitr::kable(., caption = "\\label{tb_2_1}Summary()-statistics of the response variable y for each group.")
 ```
 
-The `summary()`-statistics of the response shows a different pattern for each group. Figure \ref{fig_2_1} visualizes the response as a function of the two regressors. There are ten points in the scatter plot where each point is representing an observation in each group. The size of the circle is representing the value of `y` which is hard to interpreted due to the "same" locations.
+The `summary()`-statistics of the response show a different pattern for each group. Figure \ref{fig_2_1} visualizes the response as a function of the two regressors. There are ten points in the scatter plot where each point is representing an observation in each group. The size of the circle is representing the value of `y` which is hard to interpret due to the "same" locations in the scatter plot.
 
 ```{r, fig.cap="\\label{fig_2_1}Grouping structure of the variables..", fig.asp=1}
 dat %>% # filter(group == 1) %>% 
@@ -675,9 +675,9 @@ ggplot(., aes(x = x1, y = x2, colour=group, group = group, size = y, label = gro
   theme_TS()
 ```
 
-Figure \ref{fig_2_1_1} visualizes the count values of `y` for each group. It is possible here to conclude that the different groups forms different structures.
+Figure \ref{fig_2_1_1} visualizes the count values of `y` for each group. It is possible to conclude that the different groups form different structures.
 
-```{r, fig.cap="\\label{fig_2_1_1}Grouping structure of the variables..", fig.asp=1}
+```{r, fig.cap="\\label{fig_2_1_1}Grouping structure of the variables.", fig.asp=1}
 dat %>%
 ggplot(., aes(x = group, y = y, group=group)) +
   geom_point(alpha=0.5) +
@@ -692,7 +692,6 @@ The different structure of each group needs to be modelled.
 
 ## Q2.2
 <!--
-todo:
 - Fit a generalized linear model and argue that the grouping structure needs to be taken into account
 
 The hierarchical structure arises here from the fact that the so-called first stage model describes the observations given the random effects, and the second stage model is a model for these random effects.
@@ -701,14 +700,14 @@ The hierarchical structure of the models implies that the mixed models are a pow
 Mixed effects models can handle more general correlation structures than simply correlations between groups. Examples include simple correlation in time between the observations as for time series data; see e.g., Madsen (2008) and problems with missing data.
 -->
 
-The estimation of the generalized linear model is showed in the code chunk below. The mode is a so-called first stage model which does not consider any grouping effects.
+The estimation of the generalized linear model is shown in the code chunk below. The model is a single stage model which does not consider any grouping effects.
 
 ```{r, echo=TRUE}
 fit_glm <- glm(y ~ x1 + x2 + x1:x2, family = poisson(link = "log"), data = dat)
 ```
 
 Table \ref{tb_2_2_1} reports the `Summary()`-statistics of the estimated residuals by the GLM.
-The statistics variates clearly within each of the groups which tells that there are several specific structures and not only one structure cann tall the random effects of the groups.
+The statistics variates clearly within each of the groups which tells that there are several specific structures and not only one structure can explain the random effects of the groups.
 
 ```{r}
 dat %>% 
@@ -725,7 +724,7 @@ dat %>%
 
 \newpage
 
-Table \ref{tb_2_2_1} is supported by the visuel representation of the realization of the residuals as a function of time in figure \ref{fig_2_2}. The different colors are mapping the different groups.
+Table \ref{tb_2_2_1} is supported by the visual representation of the realization of the residuals as a function of time in figure \ref{fig_2_2}. The different colors are mapping the different groups.
 
 ```{r, fig.cap="\\label{fig_2_2}Scatter plot of the residuals as a function of time. "}
 dat %>% 
@@ -739,11 +738,11 @@ dat %>%
 ```
 
 
-**Grouping structure: ** Table \ref{tb_2_2_1} and figure \ref{fig_2_2} illustrates the variation of the residuals wihtin each of the groups. It can therefore be concluded that it might be possible to obtain a better model of the random effects from `r length(unique(dat$group))` groups are included in the model.
+**Grouping structure: ** Table \ref{tb_2_2_1} and figure \ref{fig_2_2} illustrates the variation of the residuals within each of the groups. It can therefore be concluded that it might be possible to obtain a better model of the random effects from the `r length(unique(dat$group))` groups that are included in the model.
 
 \newpage
 ## Q2.3
-The property of the second stage is that the random effects are Gaussian when using the `glmmTMB()`-function estimating the model.
+The property of the second stage is the random effects are Gaussian when using the `glmmTMB()`-function estimating the model.
 
 
 ### Q2.3.1 Write down the model and the estimates, and the interpretation of the parameters
@@ -761,9 +760,9 @@ U_{ij} \sim& \mathcal{N} \left( u_{ij},\, \sigma^2_r \right)
 \end{aligned}
 \label{eq_2_1}
 \end{equation}
-where $X_i$ is the design matrixw which includes a constant $1$, the two regressors and their interaction. $i = 1,\,2,\, ...,\,300$ for each observation, $j = 1,\,2,\, ...,\,30$ for each group. $U_{ij}$ is the random effect from each group and $\sigma^2_r$ is the dispersion among the groups.
+where $X_i$ is the design matrix which includes a constant $1$, the two regressors and their interaction. $i = 1,\,2,\, ...,\,300$ for each observation, $j = 1,\,2,\, ...,\,30$ for each group. $U_{ij}$ is the random effect from each group and $\sigma^2_r$ is the dispersion among the groups.
 
-The code chunk below shows the implementation of the `glmmTMB()`-function which is used to estimate the fixed effects and the and mixed effects. The implementations corresponds to (\ref{eq_2_1}).
+The code chunk below shows the implementation of the `glmmTMB()`-function which is used to estimate the fixed effects and the mixed effects. The implementations corresponds to (\ref{eq_2_1}).
 
 ```{r, echo=TRUE}
 fit_TMB <- glmmTMB(formula = y ~ x1 + x2 + x1:x2 + (1|group),
@@ -771,8 +770,8 @@ fit_TMB <- glmmTMB(formula = y ~ x1 + x2 + x1:x2 + (1|group),
 ```
 
 ```{r}
-coef_Q3 <- round(fit_TMB$fit$par, 4)
-coef_Q3[5] <- exp(coef_Q3[5])
+coef_Q3 <- round(c(fit_TMB$fit$par[-5],exp(fit_TMB$fit$par[5])), 4)
+
 fit_TMB_obj <- fit_TMB$fit$objective
 fit_TMB_re <- fit_TMB$fit$parfull[names(fit_TMB$fit$parfull) %in% "b"]
 # names(coef_Q3) <- c("(Intercept)","x1","x2","x1:x2", "sigma2")
@@ -781,20 +780,20 @@ The estimated fixed effects are showed in (\ref{eq_2_2}).
 
 \begin{equation}
 \begin{aligned}
-Y_{ ij }\sim& \mathcal{P}\left( \lambda _{ ij } \right)  \\
-\eta_{ ij } =& X_i\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q3[-5], collapse = "\\\\"), "\\end{bmatrix}")`+ U_{ij}\\
+Y_{ ij }\sim& \mathcal{P}\left( \eta_{ ij } \right)  \\
+\eta_{ ij } =& e^{X_i\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q3[-5], collapse = "\\\\"), "\\end{bmatrix}")`+ U_{ij}}\\
 U_{ij } \sim& \mathcal{N} \left( u_{ij},\, `r coef_Q3[5]` \right) 
 \end{aligned}
 \label{eq_2_2}
 \end{equation}
-where $u_{ij}$ is an estiamted vector whit `r length(fit_TMB_re)` elements. Analysis of the random effects are reported in table \ref{tb_2_3} and visulized in figure \ref{fig_2_3}. The random effects must follow the properties of Gaussianity in order to be a valid second stage model estimated by the `glmmTMB()`-function.
+where $u_{ij}$ is an estimated vector with `r length(fit_TMB_re)` elements. Analysis of the random effects are reported in table \ref{tb_2_3} and visualized in figure \ref{fig_2_3}. The random effects must follow the properties of Gaussianity in order to be a valid second stage model estimated by the `glmmTMB()`-function.
 
 
-The estimated parameters identicate large values of `y` for high values of `x1` and low values of `x2`. If the values of `x2` is incresing the values of `y` are decreasing. The pattern is supported by figure \ref{fig_2_1}.
+The estimated parameters indicate large values of `y` for high values of `x1` and low values of `x2`. If the values of `x2` are increasing the values of `y` are decreasing. The pattern is supported by figure \ref{fig_2_1}.
 
 ### Q2.3.2 Plot the estimated random effects in some appropriate way
 
-The `summary()`-statistics of the random effects are reported in table \ref{tb_2_3} and the visualization of the random effects w.r.t. to the estimated model is showed in figure \ref{fig_1_12}.
+The `summary()`-statistics of the random effects are reported in table \ref{tb_2_3} and the visualization of the random effects is showed in figure \ref{fig_2_3} and visualized in the QQ-plot in figure \ref{fig_2_5}.
 
 ```{r}
 data.frame(re = fit_TMB_re) %>% 
@@ -804,11 +803,11 @@ data.frame(re = fit_TMB_re) %>%
             Mean = mean(re),
             `3rd Qu.` = quantile(re, probs = 0.75),
             `Max.` = max(re)) %>% 
-  knitr::kable(., caption = "\\label{tb_2_3}Summary() w.r.t. the estimated random effects.")
+  knitr::kable(., caption = "\\label{tb_2_3}Summary() w.r.t. estimated random effects.")
 ```
 
 
-```{r, fig.cap="\\label{fig_2_3}Visulizing the random effects for each of the groups."}
+```{r, fig.cap="\\label{fig_2_3}Visualizing the random effects for each of the groups."}
 dat_TMB <- data.frame(re = fit_TMB_re,
            re_mean = rep(mean(fit_TMB_re), length(fit_TMB_re)),
            group = factor(1:length(fit_TMB_re)))
@@ -821,8 +820,6 @@ ggplot(dat_TMB, aes(y=fit_TMB_re, x = group)) +
 k <- 10000
 ```
 
-The statistics and the visuel representation of the random effects seems forefill the properties of Gaussianity.
-
 ```{r, eval=FALSE, fig.cap="\\label{fig_2_4}A histogrom of the random effects."}
 no_bins <- as.integer(diff(range(dat_TMB$re)) / (2 * IQR(dat_TMB$re) / length(dat_TMB$re)^(1/3)))
 
@@ -831,6 +828,12 @@ ggplot(dat_TMB, aes(fit_TMB_re)) +
   labs(y = "Count", x = "Random effect", color = "") +
   theme_TS()
 ```
+
+```{r, fig.cap="\\label{fig_2_5}QQ-plot of the random effects."}
+qqplot.data(dat_TMB$re)
+```
+
+The statistics and the visual representation of the random effects seem to fulfill the properties of Gaussianity.
 
 ### Q2.3.3 Check the accuracy of the Laplace approximation by importance sampling
 <!---
@@ -844,7 +847,7 @@ close to the true interval..
 simulate from a distribution -> estimate of the interval
 -->
 
-The two main functions of the importance sampling are listed in the code chunk below. The `nll()`-function is the negative log-likelighood function for (\ref{eq_2_1}). This function is used in the simulation process (`nll_Laplace_simulate()`-function) of the importance sampling\footnote{Inspired by R-script from lecture 10.}. 
+The two main functions of the importance sampling are listed in the code chunk below. The `nll()`-function is the negative log-likelihood function for (\ref{eq_2_1}). This function is used in the simulation process (`nll_Laplace_simulate()`-function) of the importance sampling\footnote{Inspired by R-script from lecture 10.}. 
 
 ```{r, echo=TRUE}
 # negative log-likelihood function
@@ -878,7 +881,7 @@ nll_Laplace_simulate <- function(theta, X, k, seed){
 }
 ```
 
-It has been chosen to run `er k` simulations and then average the (negative) log-likelihood. The inital parameters of the simulation are estimated by the `glmmTMB()`-function.
+It has been chosen to run `er k` simulations and then average the (negative) log-likelihood. The initial parameters of the simulation are estimated by the `glmmTMB()`-function.
 
 Table \ref{tb_2_4} reports the estimated negative log-likelihood and the simulated negative log-likelihood. 
 
@@ -896,21 +899,19 @@ data.frame(fit_TMB = fit_TMB$fit$objective,
 ### Q2.4.1 Write down the model
 
 The new hierarchical model with a gamma model in the second stage is given in (\ref{eq_2_3}).
-<!--
-Todo: er denne opskrevet rigtigt?
--->
+
 \begin{equation}
 \begin{aligned}
 Y_{ ij }\sim& \mathcal{P}\left( \eta_{ ij } \right)  \\
-\eta_{ ij } =&e^{X_{ i }\beta +log\left( U_{ ij } \right) }\\
-U_{ij} \sim& \mathcal{G} \left(u_{ij},\,  k,\, \theta\right) =\mathcal{G} \left(u_{ij},\,  k,\, \frac{1}{k}\right) 
+\eta_{ ij } =&e^{X_{ ij }\beta + U_{ ij } }\\
+U_{ij} \sim& \Gamma \left(u_{ij},\,  k,\, \theta\right) =\Gamma \left(u_{ij},\,  k,\, \frac{1}{k}\right) 
 \end{aligned}
 \label{eq_2_3}
 \end{equation}
 where $u_{ij}$ is the random group effects (quantiles), $k$ and $\theta = \frac{1}{k}$ are the shape and scale parameter of the gamma distribution which all need to be estimated.
 
 ### Q2.4.2 Estimate parameters and compare with the result in Question 3
-Two new functions of the negative log-likelihood (`nll_ga()`) and Laplace approximation (`nll_LA_ga()`) has been dervied according to (\ref{eq_2_3}). The output below shows the implementation of these:
+Two new functions of the negative log-likelihood (`nll_ga()`) and Laplace approximation (`nll_LA_ga()`) has been derived according to (\ref{eq_2_3}). The output below shows the implementation of these:
 
 ```{r, echo=TRUE}
 # Negative log-likelihood function
@@ -940,20 +941,16 @@ An optimization of the negative log-likelihood has been done by optimizing the L
 ```{r}
 fit_LA_ga <- nlminb(rnorm(5), nll_LA_ga, X=model.matrix(fit_TMB))
 # fit_LA_ga <- optim(rep(0, 5), nll_LA_ga, X=model.matrix(fit_TMB))
-
-# TODO??
-coef_Q4 <- round(fit_LA_ga$par, 4)
-coef_Q4[5] <- exp(coef_Q4[5])
+coef_Q4 <- round(c(fit_LA_ga$par[-5], exp(fit_LA_ga$par[5])), 4)
+#coef_Q4[5] <- round(, 4)
 ```
-The estimated parameter are given in (\ref{eq_2_4}) and in table \ref{tb_2_5}.
-<!--
-Todo: er denne opskrevet rigtigt?
--->
+The estimated parameters are given in (\ref{eq_2_4}) and in table \ref{tb_2_5}.
+
 \begin{equation}
 \begin{aligned}
 Y_{ ij }\sim& \mathcal{P}\left( \eta_{ ij } \right)  \\
-\eta_{ ij } =&e^{X_{ i }\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q4[-5], collapse = "\\\\"), "\\end{bmatrix}")` +log\left( U_{ ij } \right) }\\
-U_{ij} \sim& \mathcal{G} \left(u_{ij},\,  `r coef_Q4[5]`,\, `r 1 / coef_Q4[5]` \right) 
+\eta_{ ij } =&e^{X_{ ij }\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q4[-5], collapse = "\\\\"), "\\end{bmatrix}")` +U_{ ij } }\\
+U_{ij} \sim& \Gamma \left(u_{ij},\,  `r coef_Q4[5]`,\, `r 1 / coef_Q4[5]` \right) 
 \end{aligned}
 \label{eq_2_4}
 \end{equation}
@@ -965,16 +962,21 @@ data.frame(Parameters = c("(Intercept)","x1","x2","x1:x2", "theta/k"),
   knitr::kable(., caption = "\\label{tb_2_5}Comparison of parameter estimates by the glmmTMB method and the Laplace approximation metod.")
 ```
 
-The estimated first stage parameters in the Poisson Gamma model (\ref{eq_2_4}) are quiet similar to the parameters in the Poisson normal model (\ref{eq_2_4}).
+The estimated first stage parameters in the Poisson Gamma model (\ref{eq_2_4}) are quite similar to the parameters in the Poisson normal model (\ref{eq_2_4}).
+The `theta`-parameter and the `k`-parameter are not comparable to each other due to their different assumption of distribution.
 
-The $k$-parameters ....
-<!--
-Todo: Kan theta og k sammen lignes?
--->
+
+```{r, eval=FALSE}
+H <- hessian(nll_LA_ga,fit_LA_ga$par, X=model.matrix(fit_TMB))
+SE <- sqrt(diag(solve(H)))
+data.frame(par = fit_explicit$par, se = SE, ci_l = fit_explicit$par - 2 * SE,
+             ci_h = fit_explicit$par + 2 * SE) %>% 
+  knitr::kable(., caption = "\\label{tb_2_611}")
+```
 
 
 ### Q2.4.3 Check the accuracy of the Laplace approximation by importance sampling
-The `nll_Laplace_simulate_ga()`-function creates `r k` simulations in order to check the accurcy of the Laplace approximation.
+The `nll_Laplace_simulate_ga()`-function creates `r k` simulations in order to check the accuracy of the Laplace approximation. The code chunk below shows the implementation.
 ```{r, echo=TRUE}
 # importance sampling
 nll_Laplace_simulate_ga <- function(theta, X, n, seed){
@@ -997,7 +999,7 @@ nll_Laplace_simulate_ga <- function(theta, X, n, seed){
 }
 ```
 
-Table \ref{tb_2_4} reports the negative log-likelihood of the two models. 
+Table \ref{tb_2_4} reports the estimated and simulated negative log-likelihood for each of the two models. 
 
 ```{r}
 L_ga <- nll_Laplace_simulate_ga(fit_LA_ga$par,X=model.matrix(fit_TMB),n=k,seed=22)
@@ -1009,15 +1011,195 @@ data.frame(fit_TMB = fit_TMB$fit$objective,
   knitr::kable(., caption = "\\label{tb_2_5}Check of the accuracy.")
 ```
 
-Both models obtain approximately the same negative log-likelihood. The average values of the simulations are just below the estimated values of each of the models. These offsets makes intuatively sense seince the importance sampling samples within the inteval of the estimated maximum.
+Both models obtain approximately the same negative log-likelihood. The average values of the simulations are just below the estimated values of each of the models. These offsets make intuitively sense since the importance sampling samples within the interval of the estimated maximum.
 
 
 
 ## Q2.5
+### Q2.5.1 Find the explicit formulation of the likelihood 
+The explicit formulation of the likelihood is given in (\ref{eq_2_6}). The derivation of the formulation is heavily inspired by the example from slide 13 in lecture 12.
 
-### Q2.5.1 Find the explicit formulation of the likelihood (Hint: consult the proof of Theorem 6.1 and the formulation in Theorem 6.3 and Example 6.6, note that the there is a misprint here (U = log(V ) should be V = log(U))).
+\begin{equation}
+\begin{aligned}
+g_{Y}\left(y\right)&=\int_{0}^{\infty}\prod^{j}\left(\frac{\mu_{i}^{y_{ij}}}{y_{ij}!}e^{-\mu_{i}}\right)\frac{1}{k^{\alpha}\Gamma\left(\alpha\right)}\mu_i^{\alpha-1}e^{-\frac{\mu_i}{k}}du_i\\
+&=\int_{0}^{\infty}\prod^{j}\left(\frac{\left[e^{X_{ij}\beta}e^{\mu_{i}}\right]^{y_{ij}}}{y_{ij}!}e^{-\left[e^{X_{ij}\beta}e^{\mu_{i}}\right]}\right)\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}v^{\frac{1}{k}-1}e^{-\frac{v}{k}}dv\\
+&=\int_0^\infty\prod^{j}
+\left(\frac{e^{\left(X_{ij}\beta\right)^{y_{ij}}}e^{\mu_{i}^{y_{ij}}}e^{-v\left(e^{X_{ij}\beta}\right)}}{y_{ij}!}\right)\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}v^{\frac{1}{k}-1}e^{-\frac{v}{k}}dv\\
+%&=\int_0^\infty\frac{1}{y_{ij}!}e^{\sum^j\left(X_{ij}\beta\right)^{y_{ij}}}v^{\sum^jy_{ij}}e^{-v\sum^j\lambda_{ij}}\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}v^{\frac{1}{k}-1}e^{-\frac{v}{k}}dv\\
+&=\prod^{j}{\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}}\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}\int_{0}^{\infty}v^{\sum^{j}y_{ij}}e^{-v\sum^{j}\lambda_{ij}}v^{\frac{1}{k}-1}e^{-\frac{v}{k}}dv\\
+%Seslide13inlecture12
+&=\prod^{j}{\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}}\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}\int_{0}^{\infty}v^{\overbrace{\sum^jy_{ij}+\frac{1}{k}}^{\tilde{\alpha}}-1}e^{-v\overbrace{\left(\sum^j\lambda_{ij}+\frac{1}{k}\right)}^{\frac{1}{\tilde{\beta}}}}dv\\
+%Removeintegral
+&=\prod^{j}{\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}}\frac{1}{k^{\frac{1}{k}}\Gamma\left(\frac{1}{k}\right)}\Gamma\left(\sum^jy_{ij}+\frac{1}{k}\right)\left(\frac{k}{k\sum^j\lambda_{ij}+1}\right)^{\sum^jy_{ij}+\frac{1}{k}}\\
+%Reduction
+&=\prod^{j}{\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}}\frac{1}{k^{\frac{1}{k}}}\frac{\Gamma\left(\sum^jy_{ij}+\frac{1}{k}\right)}{\Gamma\left(\frac{1}{k}\right)}\left(\frac{k}{k\sum^j\lambda_{ij}+1}\right)^{\sum^jy_{ij}+\frac{1}{k}}
+\end{aligned}
+\label{eq_2_6}
+\end{equation}
+
+where $\lambda_{ij}=e^{X_{ij}\beta}$. $\tilde { \alpha }$ and $\frac{1}{\tilde { \beta}}$ are recognized as the $\Gamma$-integral\footnote{Slide 13 from lecture 12.}. It is hereby possible to get an analytic solution of the formulation.
+
+The $k$-parameter and the $\beta$'s are parameters which need to be estimated w.r.t. maximizing the negative (log-)likelihood of (\ref{eq_2_6}).
+
+
 ### Q2.5.2 Implement the above formulation and estimate the parameters.
-### Q2.5.3 Find the conditional mean and variance of the random effects (Hint: see (the proof of) Theorem 6.2)
+
+The final line of (\ref{eq_2_6}) is showed in (\ref{eq_2_7}). (\ref{eq_2_7}) has been split into three terms and two constants defined as $c_1$ and $c_2$ which are independent of each of the groups. These constants and the complete $\lambda_{ij}$ are defined outside the loop in order to gain computational efficiency.
+
+\begin{equation}
+\begin{aligned}
+\underbrace{\prod^{j}{\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}}}_{term_{1}}\underbrace{\overbrace{\frac{1}{k^{\frac{1}{k}}}}^{c_{1}}\frac{\Gamma\left(\sum^{j}y_{ij}+\frac{1}{k}\right)}{\overbrace{\Gamma\left(\frac{1}{k}\right)}^{c_{2}}}}_{term_{2}}\underbrace{\left(\frac{k}{k\sum^{j}\lambda_{ij}+1}\right)^{\sum^{j}y_{ij}+\frac{1}{k}}}_{term_{3}}
+\end{aligned}
+\label{eq_2_7}
+\end{equation}
+
+The three terms of (\ref{eq_2_7}) only represents the likelihood and must therefore be log-transformed prior to the optimization procedure. 
+
+**NB:** It has to be notified that the response of the observations must not be zero. This will result in a zero in the first term which entails `log(0*t2*t3) = log(0) = -Inf` hence the extra condition when founding the indices for a given group.
+
+The implementation of (\ref{eq_2_7}) is showed in the code chunk below.
+
+```{r, echo=TRUE}
+# Negative log-likelihood function
+nll_explicit <- function(theta, X, Y){
+  # constants
+  beta <- theta[-5]
+  k <- exp(theta[5])
+  c_1 <- 1 / (k^(1/k))
+  c_2 <- lgamma(1/k)
+  lambda_ij <- exp(X%*%beta)
+  # calculate log-likelihood for each group
+  opt_val_single <- sapply(1:30, function(ii) {
+    # get idx and subset lambda and Y for given group
+    idx <- ii == dat$group & dat$y != 0
+    lambda_single <- lambda_ij[idx]
+    Y_single <- Y[idx]
+    # term 1
+    t1 <- prod(lambda_single^Y_single / prod(Y_single))
+    # term 2
+    t2 <- c_1 * lgamma(sum(Y_single)+1/k) / c_2
+    # term 3
+    t3 <- (k/(k*sum(lambda_single)+1))^(sum(Y_single)+1/k)
+    #
+    return(log(t1*t2*t3))
+  })
+  # return negative log-likelihood
+  return(-sum(opt_val_single))
+}
+```
+
+
+```{r}
+#
+fit_explicit <- nlminb(rep(0.5,5), nll_explicit, X = model.matrix(fit_glm), Y = dat$y)
+#
+coef_Q5 <- round(c(fit_explicit$par[-5], exp(fit_explicit$par[5])), 4)
+# 3 constants
+c_1 <- round(1 / (exp(fit_explicit$par[5])^(1/exp(fit_explicit$par[5]))),4)
+c_2 <- round(lgamma(1/exp(fit_explicit$par[5])),4)
+c_3 <- round(1/exp(fit_explicit$par[5]),4)
+```
+
+The estimated parameters are given in (\ref{eq_2_8}) and in table \ref{tb_2_6}. The estimated log-likelihood is: $`r round(fit_explicit[["objective"]],4)`$ which much larger compared to the previous estimated models: $`r round(-as.vector(logLik(fit_glm)),4)`$, $`r round(fit_TMB_obj,4)`$ and $`r round(fit_LA_ga[["objective"]],4)`$ for the `fit_glm()`-function, the `fit_TMB()`-function and the `fit_LA_ga()`-function respectively.
+
+```{r, eval=FALSE}
+H < -hessian(nll_explicit, fit_explicit$par, X = model.matrix(fit_glm), Y = dat$y)
+SE <- sqrt(diag(solve(H)))
+data.frame(par = fit_explicit$par, se = SE, ci_l = fit_explicit$par - 2 * SE,
+             ci_h = fit_explicit$par + 2 * SE) %>% 
+  knitr::kable(., caption = "\\label{tb_2_611}")
+```
+
+The parameters in the explicit formulation are similar to the previous estimated models thus the large difference in the estimated log-likelihood the third model, see (\ref{eq_2_8}) and table \ref{tb_2_6}.
+
+```{r}
+data.frame(Parameters = c("(Intercept)","x1","x2","x1:x2", "theta/k"),
+           fit_TMB = coef_Q3, fit_LA_ga = coef_Q4, fit_explicit = coef_Q5) %>% 
+  #mutate(delta = fit_LA_ga-fit_TMB) %>% 
+  knitr::kable(., caption = "\\label{tb_2_6}Comparison of parameter estimates by the glmmTMB method, the Laplace approximation metod and the explicit formulation.")
+```
+
+
+\begin{subequations}
+\begin{equation}
+\begin{aligned}
+g_{Y}\left(y\right)&=\prod^{j}\frac{\lambda_{ij}^{y_{ij}}}{y_{ij}!}`r c_1`\frac{\Gamma\left(\sum^{j}y_{ij}+`r c_3`\right)}{`r c_2`}\left(\frac{`r round(coef_Q5[5],4)`}{`r round(coef_Q5[5],4)`\sum^{j}\lambda_{ij}+1}\right)^{\sum^{j}y_{ij}+`r c_3`} \\
+\end{aligned}
+\label{eq_2_8_A}
+\end{equation}
+\begin{equation}
+\begin{aligned}
+\lambda_{ij}&=e^{X_{ij}\cdot `r paste0("\\begin{bmatrix}", paste(coef_Q5[-5], collapse = "\\\\"), "\\end{bmatrix}")`}
+\end{aligned}
+\label{eq_2_8_B}
+\end{equation}
+\label{eq_2_8}
+\end{subequations}
+
+
+
+### Q2.5.3 Find the conditional mean and variance of the random effects 
+
+<!--
+(Hint: see (the proof of) Theorem 6.2)
+-->
+
+The question has not been considered due to lack of time.
+<!--
+```{r, eval=FALSE}
+X = model.matrix(fit_glm)
+## Unconditional mean and precision
+mu <- 1 / (1 + exp(-(X%*%coef_Q5[-5])))
+phi <- exp(coef_Q5[5])
+#
+alpha <- mu * phi
+beta <- (1-mu) * phi
+
+View(cbind(alpha, ))
+
+## Conditional mean and precision (Theorem 6.6)
+alpha.z <- alpha + r
+beta.z <- beta + n - r
+
+
+dgamma(u, shape = k, scale = 1/k ,log=TRUE)
+
+dat$y - ((1/coef_Q5[5] + dat$y) / ( 1/coef_Q5[5] + 1 ))
+
+
+
+mu.z <- alpha.z/(alpha.z+beta.z)
+sigma.z <- alpha.z+beta.z
+```
+
+\begin{equation}
+\begin{aligned}
+1
+\end{aligned}
+\label{eq_2_9}
+\end{equation}
+
+-->
 
 ## Q2.6
-Compare and discuss the models and estimaton methods you have used in this problem, e.g. which method/model would you prefer, how difficult is it to generalize the results to more complicated structures, etc.
+<!--
+Compare and discuss the models and estimation methods you have used in this problem, e.g. which method/model would you prefer, how difficult is it to generalize the results to more complicated structures, etc.
+-->
+
+There has been applied three different models and four different methods. These are listed below and will be referenced as e.g. `[4]` for explicit formulation.
+
+1. A Poisson GLM using a `log`-link function.
+1. `glmmTMB()`-function of the hierarchical Poisson-Normal model.
+1. Laplace approximation of the hierarchical Poisson-Gamma model.
+1. Explicit formulation of the likelihood of the hierarchical Poisson-Gamma model.
+
+A statistical analysis of the level of significance of the grouping effect in model `[2]`, model `[3]` and model `[4]` has not been carried out, however the grouping structure is stated in the exploratory analysis. It is therefore not possible to reject model `[1]` because it does not consider this grouping effect.
+
+The first stage parameters in model `[2]`, model `[3]` and model `[4]` are similar despite the different estimated methods. 
+The distribution assumption of the second stage in model `[2]` is Gaussian where the second stage of model `[3]` and model `[4]` are Gamma distributions with a mean of `1`. The estimated grouping effects of model `[2]` supports the distribution assumption, see table \ref{tb_2_3}, figure \ref{fig_2_3} and \ref{fig_2_5}. An analysis regarding whether the grouping effects follows the Gamma distribution has not been carried out. This needs to be analysed prior to rejecting or accepting model `[3]` and model `[4]`.
+
+The preferred choice of method would be model `[2]` due to its simple notation, minimized possible coding errors and efficient computational framework. By choosing either model `[3]` or model `[4]` a more complicated implementation will be introduced. This can increase the amount of possible coding errors in the implementation. 
+
+<!--
+The double optimization procedure in model `[3]` is computation heavy and can potentinal enter local maxima and return sub-optimal parameter estimates. 
+-->

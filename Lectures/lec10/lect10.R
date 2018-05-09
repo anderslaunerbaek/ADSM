@@ -69,9 +69,9 @@ ll <- function(mu,Sigma,Sigma0,SSE,N,y,ni){
             0.5 * t(mui[ ,i] - mu) %*% solve(Sigma/ni[i]+Sigma0) %*%
                 (mui[ ,i] -mu)
     }
-    ll <- ll - (N - k) / 2 * log(det(Sigma)) -
-        0.5 * sum(diag(SSE %*% solve(Sigma)))
-    - ll
+    ll <- ll - (N - k) / 2 * log(det(Sigma)) - 0.5 * sum(diag(SSE %*% solve(Sigma)))
+    #
+    return(-ll)
 }
 
 # E.g set up parameters
@@ -98,12 +98,10 @@ nll <- function(pars){
     Sigma <- Sigma0 <- matrix(ncol=2,nrow=2)
     Sigma[1,1] <- pars["sig1"]
     Sigma[2,2] <- pars["sig2"]
-    Sigma[1,2] <- Sigma[2,1] <- pars["rho"] *
-        sqrt(pars["sig1"] * pars["sig2"])
+    Sigma[1,2] <- Sigma[2,1] <- pars["rho"] * sqrt(pars["sig1"] * pars["sig2"])
     Sigma0[1,1] <- pars["sig01"]
     Sigma0[2,2] <- pars["sig02"]
-    Sigma0[1,2] <- Sigma0[2,1] <- rho0 *
-        sqrt(pars["sig01"] * pars["sig02"])
+    Sigma0[1,2] <- Sigma0[2,1] <- rho0 * sqrt(pars["sig01"] * pars["sig02"])
     ll(mu,Sigma,Sigma0,SSE,N,y,ni)
 }
 
